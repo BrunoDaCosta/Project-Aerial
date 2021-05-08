@@ -98,6 +98,8 @@ if __name__ == '__main__':
                 STATE = ADVANCE
                 time.sleep(1)
                 direction = 0
+                checkedright=False
+                checkedleft=False
                 line0 = False
                 line3 = True
                 while keep_flying:
@@ -118,25 +120,33 @@ if __name__ == '__main__':
                                     STATE = CORNER
                                 else:
                                     vy = VELOCITY
+                                if checkedright:
+                                    direction = 1
                             elif (is_close(multiranger.left)):
                                 print("Right")
                                 if y < 0.2:
                                     STATE = CORNER
                                 else :
                                     vy = -VELOCITY
+                                if checkedleft:
+                                    direction = -1
                             else:
                                 if y < 1.5 and direction == 0:
                                     vy = VELOCITY
                                     direction = 1
+                                    checkedleft = True
                                 elif direction == 0:
                                     vy = -VELOCITY
                                     direction = -1
+                                    checkedright = True
                                 else:
                                     vy = VELOCITY * direction
                         else:
                             print("Front")
                             vx = VELOCITY
                             direction = 0
+                            checkedright = False
+                            checkedleft = False
                     elif STATE == CORNER:
                         if y < 1.5:
                             if (is_close(multiranger.left)):
