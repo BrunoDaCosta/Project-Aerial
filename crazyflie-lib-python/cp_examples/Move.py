@@ -169,9 +169,9 @@ if __name__ == '__main__':
                             vx = VELOCITY
                             line0 = False
                             line3 = False
-                        elif line0:
+                        elif line0 and not is_close(multiranger.left):
                             vy = VELOCITY
-                        elif line3:
+                        elif line3 and not is_close(multiranger.right):
                             vy = -VELOCITY
                         if is_close(multiranger.down):
                              keep_flying = False
