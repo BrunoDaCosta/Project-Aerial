@@ -167,7 +167,7 @@ if __name__ == '__main__':
                                 if not(is_close(multiranger.front)):
                                     STATE = ADVANCE
                     elif STATE == GOAL:
-                        if x < 3.7 and y < 1.5 and not line0:
+                        if x < 3.7 and y <= 1.5 and not line0:
                             vy = -VELOCITY
                         elif x < 3.7 and y > 1.5 and not line3:
                             vy = VELOCITY
