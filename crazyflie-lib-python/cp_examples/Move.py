@@ -50,6 +50,30 @@ if len(sys.argv) >1:
     if len(sys.argv) >2:
         y0 = float(sys.argv[2])
 
+def get_off_U(x,y,VELOCITY = 0.2):
+    while is_close(multiranger.right) and is_close(multiranger.left):
+        motion_commander.start_linear_motion(-VELOCITY, 0, 0)
+        time.sleep(0.1)
+        x -= VELOCITY * 0.1
+    if not is_close(multiranger.right) and not is_close(multiranger.left):
+        if y < 1.5:
+            motion_commander.start_linear_motion(0, VELOCITY, 0)
+            time.sleep(0.5)
+            y += VELOCITY * 0.5
+        else:
+            motion_commander.start_linear_motion(0, -VELOCITY, 0)
+            time.sleep(0.5)
+            y -= VELOCITY * 0.5
+    elif not is_close(multiranger.right):
+        motion_commander.start_linear_motion(0, -VELOCITY, 0)
+        time.sleep(0.5)
+        y -= VELOCITY * 0.5
+    else:
+        motion_commander.start_linear_motion(0, VELOCITY, 0)
+        time.sleep(0.5)
+        y += VELOCITY * 0.5
+    return x,y
+
 
 def is_close(range):
     MIN_DISTANCE = 0.2  # m
@@ -73,16 +97,22 @@ if __name__ == '__main__':
                 y = y0
                 STATE = ADVANCE
                 time.sleep(1)
+                direction = 0
+                line0 = False
+                line3 = True
                 while keep_flying:
                     vx = 0
                     vy = 0
                     # Main loop of the controller
-                    if x > 3.5:
+                    if x > 3.6:
                         STATE = GOAL
                         
                     if STATE == ADVANCE:
                         if (is_close(multiranger.front)):
-                            if (is_close(multiranger.right)):
+                            if is_close(multiranger.right) and is_close(multiranger.left):
+                                print("U")
+                                (x,y) = get_off_U(x,y)
+                            elif (is_close(multiranger.right)):
                                 print("Left")
                                 if y > 2.8:
                                     STATE = CORNER
@@ -95,13 +125,18 @@ if __name__ == '__main__':
                                 else :
                                     vy = -VELOCITY
                             else:
-                                if y < 1.5:
+                                if y < 1.5 and direction == 0:
                                     vy = VELOCITY
-                                else:
+                                    direction = 1
+                                elif direction == 0:
                                     vy = -VELOCITY
+                                    direction = -1
+                                else:
+                                    vy = VELOCITY * direction
                         else:
                             print("Front")
                             vx = VELOCITY
+                            direction = 0
                     elif STATE == CORNER:
                         if y < 1.5:
                             if (is_close(multiranger.left)):
@@ -122,8 +157,25 @@ if __name__ == '__main__':
                                 if not(is_close(multiranger.front)):
                                     STATE = ADVANCE
                     elif STATE == GOAL:
-                        pass
-                    
+                        if x < 3.7 and y < 1.5 and not line0:
+                            vy = -VELOCITY
+                        elif x < 3.7 and y > 1.5 and not line3:
+                            vy = VELOCITY
+                        if y < 0.2 or is_close(multiranger.right):
+                            line0 = True
+                        if y > 2.8 or is_close(multiranger.left):
+                            line3 = True
+                        if line3 and line0:
+                            vx = VELOCITY
+                            line0 = False
+                            line3 = False
+                        elif line0:
+                            vy = VELOCITY
+                        elif line3:
+                            vy = -VELOCITY
+                        if is_close(multiranger.down):
+                             keep_flying = False
+                                
                     motion_commander.start_linear_motion(vx, vy, 0)
                     x += vx * 0.1
                     y += vy * 0.1
@@ -131,5 +183,5 @@ if __name__ == '__main__':
                         print("landing")
                         keep_flying = False
                     time.sleep(0.1)
-                    print("{}  {}".format(x,y))
+                    print("{}  {}".format(round(x,2),round(y,2)))
 
