@@ -191,7 +191,7 @@ if __name__ == '__main__':
                     # Main loop of the controller
                         
                     if STATE == ADVANCE:
-                        if x > 2:
+                        if x > 1:
                             STATE = GOAL
                         if (is_close(multiranger.front)):
                             if is_close(multiranger.right) and is_close(multiranger.left):
@@ -280,24 +280,22 @@ if __name__ == '__main__':
                             counter_height = 0
                             VELOCITY = VELOCITY / 2
                             onthebox = 1
-                            time.sleep(0.5)
+                            time.sleep(1)
                     
                     elif STATE == LANDING:
-                        if height == "up" and multiranger.down > 0.24 and counter_height >= 5:
+                        if height == "up" and multiranger.down > 0.24 and counter_height >= 10:
                             height = "down"
-                            onthebox = 0
-                            time.sleep(0.5)
                             counter_height = 0
+                            time.sleep(1)
                             
-                        elif height == "down" and multiranger.down < 0.15 and counter_height >= 5:
+                        elif height == "down" and multiranger.down < 0.15 and counter_height >= 10:
                             height = "up"
-                            time.sleep(0.5)
                             counter_height = 0
+                            time.sleep(1)
                             
 ##                        print(str(L_STATE) + " " + height +" " + str(multiranger.down))
 
-                        print(str(L_STATE) + "  " + height + str(multiranger.down))
-                        
+                        print(str(L_STATE) + "  " + height + " " + str(multiranger.down) + " " + str(counter_height))
                         if multiranger.down >= 0.18 and multiranger.down <= 0.22:
                             
                             
@@ -306,17 +304,17 @@ if __name__ == '__main__':
                                 if height == "down":
                                     coords_border[0] = y
                                     L_STATE = L_LEFT
+                                    onthebox = 0
                             if L_STATE == L_LEFT:
                                 vy = VELOCITY
-                                if onthebox == 0:
-                                    if height == "up":
-                                        onthebox = 1
-                                elif height == "down":
+                                if height == "up":
+                                    onthebox = 1
+                                elif height == "down" and onthebox == 1:
                                     coords_border[1] = y
                                     L_STATE = L_MIDDLE_Y
                             if L_STATE == L_MIDDLE_Y:
                                 diff = np.mean(coords_border[0:2])-y
-                                vy = sign(diff)*VELOCITY
+                                vy = np.sign(diff)*VELOCITY
                                 if abs(diff) < 0.05:
                                     time.sleep(1)
                                     L_STATE = L_BACK
@@ -326,17 +324,17 @@ if __name__ == '__main__':
                                 if height == "down":
                                     coords_border[2] = x
                                     L_STATE = L_FRONT
+                                    onthebox = 0
                             if L_STATE == L_FRONT:
                                 vx = VELOCITY
-                                if onthebox == 0:
-                                    if height == "up":
-                                        onthebox = 1
-                                elif height == "down":
+                                if height == "up":
+                                    onthebox = 1
+                                elif height == "down" and onthebox == 1:
                                     coords_border[3] = x
                                     L_STATE = L_MIDDLE_X
                             if L_STATE == L_MIDDLE_X:
                                 diff = np.mean(coords_border[2:4])-x
-                                vx = sign(diff)*VELOCITY
+                                vx = np.sign(diff)*VELOCITY
                                 if abs(diff) < 0.05:
                                     time.sleep(1)
                                     keep_flying = False
