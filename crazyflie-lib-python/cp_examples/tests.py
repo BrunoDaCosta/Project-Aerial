@@ -85,8 +85,7 @@ L_RIGHT = 1
 L_BACK = 2
 L_LEFT = 3
 L_FRONT = 4
-L_MIDDLE_Y = 5
-L_MIDDLE_X = 6
+L_MIDDLE = 5
 
 if len(sys.argv) >1:
     x0 = float(sys.argv[1])
@@ -181,9 +180,8 @@ if __name__ == '__main__':
                 line0 = False
                 line3 = True
                 height = "down"
-                coords_border = [0, 0, 0, 0]
-                counter_height = 0
-                onthebox = 0
+                height_cross = [-1, -1, -1, -1] #x ,-x, y, -y
+                counter_land = 0
                 
                 while keep_flying:
                     vx = 0
@@ -274,75 +272,87 @@ if __name__ == '__main__':
                             print("entering landing mode!")
                             STATE = LANDING
                             height = "up"
-                            coords_border = [0, 0, 0, 0]
+                            height_cross = [0, 0, 0, 0]
                             goal_pos = [x,y]
                             L_STATE = L_RIGHT
-                            counter_height = 0
+                            counter_land = 0
                             VELOCITY = VELOCITY / 2
-                            onthebox = 1
-                            time.sleep(0.5)
                     
                     elif STATE == LANDING:
-                        if height == "up" and multiranger.down > 0.24 and counter_height >= 5:
+                        if height == "up" and multiranger.down > 0.27:
                             height = "down"
-                            onthebox = 0
-                            time.sleep(0.5)
-                            counter_height = 0
                             
-                        elif height == "down" and multiranger.down < 0.15 and counter_height >= 5:
+                        elif height == "down" and multiranger.down < 0.15:
                             height = "up"
-                            time.sleep(0.5)
-                            counter_height = 0
                             
-##                        print(str(L_STATE) + " " + height +" " + str(multiranger.down))
+                        print(str(L_STATE) + " " + height +" " + str(multiranger.down))
 
-                        print(str(L_STATE) + "  " + height + str(multiranger.down))
-                        
                         if multiranger.down >= 0.18 and multiranger.down <= 0.22:
                             
-                            
                             if L_STATE == L_RIGHT:
-                                vy = -VELOCITY
-                                if height == "down":
-                                    coords_border[0] = y
-                                    L_STATE = L_LEFT
-                            if L_STATE == L_LEFT:
-                                vy = VELOCITY
-                                if onthebox == 0:
-                                    if height == "up":
-                                        onthebox = 1
-                                elif height == "down":
-                                    coords_border[1] = y
-                                    L_STATE = L_MIDDLE_Y
-                            if L_STATE == L_MIDDLE_Y:
-                                diff = np.mean(coords_border[0:2])-y
-                                vy = sign(diff)*VELOCITY
-                                if abs(diff) < 0.05:
-                                    time.sleep(1)
+                                if counter_land >= 20:
                                     L_STATE = L_BACK
-
-                            if L_STATE == L_BACK:
-                                vx = -VELOCITY
-                                if height == "down":
-                                    coords_border[2] = x
-                                    L_STATE = L_FRONT
-                            if L_STATE == L_FRONT:
-                                vx = VELOCITY
-                                if onthebox == 0:
+                                    counter_land = 0
                                     if height == "up":
-                                        onthebox = 1
-                                elif height == "down":
-                                    coords_border[3] = x
-                                    L_STATE = L_MIDDLE_X
-                            if L_STATE == L_MIDDLE_X:
-                                diff = np.mean(coords_border[2:4])-x
-                                vx = sign(diff)*VELOCITY
-                                if abs(diff) < 0.05:
-                                    time.sleep(1)
+                                        height_cross[0] = 1
+                                        print("Good Pos")
+                                elif counter_land >= 10:
+                                    pass
+                                else:
+                                    vy = -VELOCITY
+                                counter_land += 1
+                            if L_STATE == L_BACK:
+                                if counter_land >= 20:
+                                    L_STATE = L_LEFT
+                                    counter_land = 0
+                                    if height == "up":
+                                        height_cross[1] = 1
+                                        print("Good Pos")
+                                elif counter_land >= 10:
+                                    pass
+                                else:
+                                    vx = -VELOCITY
+                                    vy = VELOCITY
+                                counter_land += 1
+                            if L_STATE == L_LEFT:
+                                if counter_land >= 20:
+                                    L_STATE = L_FRONT
+                                    counter_land = 0
+                                    if height == "up":
+                                        height_cross[2] = 1
+                                        print("Good Pos")
+                                elif counter_land >= 10:
+                                    pass
+                                else:
+                                    vx = VELOCITY
+                                    vy = VELOCITY
+                                counter_land += 1
+                            if L_STATE == L_FRONT:
+                                if counter_land >= 20:
+                                    L_STATE = L_MIDDLE
+                                    counter_land = 0
+                                    if height == "up":
+                                        height_cross[3] = 1
+                                        print("Good Pos")
+                                elif counter_land >= 10:
+                                    pass
+                                else:
+                                    vx = VELOCITY
+                                    vy = -VELOCITY
+                                counter_land += 1
+                            if L_STATE == L_MIDDLE:
+                                if counter_land >=20:
+                                    #motion_commander.land()
                                     keep_flying = False
+                                elif counter_land >= 10:
+                                    vx = (-0.1*height_cross[1] + 0.1*height_cross[3])/2
+                                    vy = (-0.1*height_cross[0] + 0.1*height_cross[2])/2
+                                    print(str(10*vx),str(10*vy))
+                                    
+                                else:
+                                    vx = -VELOCITY
+                                counter_land += 1
 
-                            
-                        counter_height += 1
 
                     
                     motion_commander.start_linear_motion(vx, vy, 0)
@@ -355,6 +365,7 @@ if __name__ == '__main__':
                     #print("{}  {} {}".format(round(x,2),round(y,2), multiranger.down))
                     grid = update_grid(grid, x, y)
                     grid[floor(x*10)][floor(y*10)] = 2
+##                    print(multiranger.down)
 
             
 grid = color_zone(grid)
