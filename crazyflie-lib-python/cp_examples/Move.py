@@ -191,7 +191,7 @@ if __name__ == '__main__':
                     # Main loop of the controller
                         
                     if STATE == ADVANCE:
-                        if x > 1:
+                        if x > 0.5:
                             STATE = GOAL
                         if (is_close(multiranger.front)):
                             if is_close(multiranger.right) and is_close(multiranger.left):
@@ -271,79 +271,113 @@ if __name__ == '__main__':
 ##                            if is_close(multiranger.down):
 ##                                 keep_flying = False
                         else:
-                            print("entering landing mode!")
+                            motion_commander.start_linear_motion(0, 0, 0)
+                            time.sleep(1)
                             STATE = LANDING
-                            height = "up"
-                            coords_border = [0, 0, 0, 0]
-                            goal_pos = [x,y]
-                            L_STATE = L_RIGHT
-                            counter_height = 0
                             VELOCITY = VELOCITY / 2
-                            onthebox = 1
-                            time.sleep(1)
-                    
-                    elif STATE == LANDING:
-                        if height == "up" and multiranger.down > 0.24 and counter_height >= 10:
-                            height = "down"
-                            counter_height = 0
-                            time.sleep(1)
-                            
-                        elif height == "down" and multiranger.down < 0.15 and counter_height >= 10:
-                            height = "up"
-                            counter_height = 0
-                            time.sleep(1)
-                            
-##                        print(str(L_STATE) + " " + height +" " + str(multiranger.down))
-
-                        print(str(L_STATE) + "  " + height + " " + str(multiranger.down) + " " + str(counter_height))
-                        if multiranger.down >= 0.18 and multiranger.down <= 0.22:
-                            
-                            
-                            if L_STATE == L_RIGHT:
-                                vy = -VELOCITY
-                                if height == "down":
-                                    coords_border[0] = y
-                                    L_STATE = L_LEFT
-                                    onthebox = 0
-                            if L_STATE == L_LEFT:
-                                vy = VELOCITY
-                                if height == "up":
-                                    onthebox = 1
-                                elif height == "down" and onthebox == 1:
-                                    coords_border[1] = y
+                            first = True
+                            x_found = False
+                            y_found = False
+                    if STATE == LANDING:
+                        print(str(prev_vy) + " "+ str(L_STATE) + " " + str(multiranger.down))
+                        if prev_vy != 0 and first:
+                            if prev_vy > 0:
+                                y_r = y
+                                L_STATE = L_LEFT
+                            else:
+                                y_l = y
+                                L_STATE = L_RIGHT
+                        if prev_vx != 0 and first:
+                            if prev_vx > 0:
+                                x_b = x
+                                L_STATE = L_FRONT
+                            else:
+                                x_f = x
+                                L_STATE = L_BACK
+                        if L_STATE == L_LEFT:
+                            vy = VELOCITY
+                            if not x_found:
+                                if multiranger.down>0.25 and abs(y-y_r) > 0.15:
+                                    motion_commander.start_linear_motion(0, 0, 0)
+                                    time.sleep(1)
+                                    y_l = y
                                     L_STATE = L_MIDDLE_Y
-                            if L_STATE == L_MIDDLE_Y:
-                                diff = np.mean(coords_border[0:2])-y
-                                vy = np.sign(diff)*VELOCITY
-                                if abs(diff) < 0.05:
+                            else:
+                                if multiranger.down>0.25 and abs(y-y_r) > 0.15:
+                                    motion_commander.start_linear_motion(0, 0, 0)
                                     time.sleep(1)
-                                    L_STATE = L_BACK
-
-                            if L_STATE == L_BACK:
-                                vx = -VELOCITY
-                                if height == "down":
-                                    coords_border[2] = x
-                                    L_STATE = L_FRONT
-                                    onthebox = 0
-                            if L_STATE == L_FRONT:
-                                vx = VELOCITY
-                                if height == "up":
-                                    onthebox = 1
-                                elif height == "down" and onthebox == 1:
-                                    coords_border[3] = x
+                                    y_l = y
+                                    L_STATE = L_MIDDLE_Y
+                        if L_STATE == L_RIGHT:
+                            vy = -VELOCITY
+                            if not x_found:
+                                if multiranger.down>0.25 and abs(y-y_l) > 0.15:
+                                    motion_commander.start_linear_motion(0, 0, 0)
+                                    time.sleep(1)
+                                    y_r = y
+                                    L_STATE = L_MIDDLE_Y
+                            else:
+                                if multiranger.down>0.25:
+                                    motion_commander.start_linear_motion(0, 0, 0)
+                                    time.sleep(1)
+                                    y_r = y
+                                    L_STATE = L_LEFT
+                        if L_STATE == L_MIDDLE_Y:
+                            diff = (y_l+y_r)/2-y
+                            print(str(round(y_l,2)) + " " + str(round(y_r,2)) + " " + str(round(y,2)))
+                            vy = np.sign(diff)*VELOCITY
+                            if abs(diff) < 0.02:
+                                vy = np.sign(diff)*VELOCITY/2
+                            if abs(diff) < 0.01:
+                                time.sleep(1)
+                                L_STATE = L_BACK
+                                y_found = True
+                        if L_STATE == L_BACK:
+                            vx = -VELOCITY
+                            if not y_found:
+                                if multiranger.down>0.25 and abs(x-x_f) > 0.15:
+                                    motion_commander.start_linear_motion(0, 0, 0)
+                                    time.sleep(1)
+                                    x_b = x
                                     L_STATE = L_MIDDLE_X
-                            if L_STATE == L_MIDDLE_X:
-                                diff = np.mean(coords_border[2:4])-x
-                                vx = np.sign(diff)*VELOCITY
-                                if abs(diff) < 0.05:
+                            else:
+                                if multiranger.down>0.25:
+                                    motion_commander.start_linear_motion(0, 0, 0)
                                     time.sleep(1)
-                                    keep_flying = False
+                                    x_b = x
+                                    L_STATE = L_FRONT
+                        if L_STATE == L_FRONT:
+                            vx = VELOCITY
+                            if not y_found:
+                                if multiranger.down>0.25 and abs(x-x_b) > 0.15:
+                                    motion_commander.start_linear_motion(0, 0, 0)
+                                    time.sleep(1)
+                                    x_f = x
+                                    L_STATE = L_MIDDLE_X
+                            else:
+                                if multiranger.down>0.25 and abs(x-x_b) > 0.15:
+                                    motion_commander.start_linear_motion(0, 0, 0)
+                                    time.sleep(1)
+                                    x_f = x
+                                    L_STATE = L_MIDDLE_X
+                        if L_STATE == L_MIDDLE_X:
+                            diff = (x_b+x_f)/2-x
+                            print(str(round(x_b,2)) + " " + str(round(x_f,2)) + " " + str(round(x,2)))
+                            vx = np.sign(diff)*VELOCITY
+                            if abs(diff) < 0.02:
+                                vx = np.sign(diff)*VELOCITY/2
+                            if abs(diff) < 0.01:
+                                time.sleep(1)
+                                L_STATE = L_RIGHT
+                                x_found = True
 
-                            
-                        counter_height += 1
-
+                        first = False
+                        if x_found and y_found:
+                            keep_flying = False
                     
                     motion_commander.start_linear_motion(vx, vy, 0)
+                    prev_vx = vx
+                    prev_vy = vy
                     x += vx * 0.1
                     y += vy * 0.1
                     if is_close(multiranger.up):
