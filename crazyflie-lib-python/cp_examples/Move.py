@@ -22,7 +22,7 @@ def create_empty_plot(size_x,size_y):
     ax.grid(True)
     return fig, ax
 
-cmap = colors.ListedColormap(['white', 'black', 'red','blue','green'])
+cmap = colors.ListedColormap(['white', 'black', 'red','blue','green', 'yellow'])
 
 img_size = (50, 30)
 grid = np.zeros((img_size[0],img_size[1]))
@@ -74,19 +74,47 @@ from cflib.positioning.motion_commander import MotionCommander
 
 # URI to the Crazyflie to connect to
 uri = 'radio://0/10/2M/E7E7E7E7E7'
+# initial position
 x0 = 0
 y0 = 0
+# State of the drone
 ADVANCE = 1
 GOAL = 2
 CORNER = 3
 LANDING = 4
+RETURN = 5
 
+# State when locating the landing pad
 L_RIGHT = 1
 L_BACK = 2
 L_LEFT = 3
 L_FRONT = 4
 L_MIDDLE_Y = 5
 L_MIDDLE_X = 6
+
+# Used to select a direction when encountering an obstacle
+direction = 0
+checkedright=False
+checkedleft=False
+# True until the end of the first passsage in landing state, used to know
+# in which direction (x,-x,y,-y) the drone found the landing pad
+first = True
+# True if the x (y) position of the landing pad center is found
+x_found = False
+y_found = False
+# height threshold for the detection of a 'fall', when passing from the landing pad
+# to the ground (set once the height of the flight is defined)
+height_thresh = 0
+# Set of points not explored in the landing zone due to obstacles
+x_obst = []
+ÿ_obst = []
+# x and y positions of the edge of the landing pad
+y_l = 0 # y left
+y_r = 0 # y right
+x_b = 0 # x back
+x_f = 0 # x front
+# position of the landing pad center
+goal_pos = (-1,-1)
 
 if len(sys.argv) >1:
     x0 = float(sys.argv[1])
@@ -128,7 +156,7 @@ def color_zone(grid):
 
 
 def get_off_U(x,y,VELOCITY = 0.2):
-    while is_close(multiranger.right) and is_close(multiranger.left):
+    while is_close(multiranger.right) and is_close(multiranger.left) and not is_close(multiranger.back):
         motion_commander.start_linear_motion(-VELOCITY, 0, 0)
         time.sleep(0.1)
         x -= VELOCITY * 0.1
@@ -151,7 +179,216 @@ def get_off_U(x,y,VELOCITY = 0.2):
         y += VELOCITY * 0.5
     return x,y
 
+# Advance State : drone reaches landing region while avoiding obstacles
+# Obstacle avoidance is set to prioritize displacement towards the y-center
+# of the map.
+def advance(x, y, vx, vy):
+    if (is_close(multiranger.front)):
+        if is_close(multiranger.right) and is_close(multiranger.left):
+            print("U")
+            (x,y) = get_off_U(x,y)
+        elif (is_close(multiranger.right)):
+            print("Left")
+            if y > 2.8:
+                STATE = CORNER
+            else:
+                vy = VELOCITY
+            if checkedright:
+                direction = 1
+        elif (is_close(multiranger.left)):
+            print("Right")
+            if y < 0.2:
+                STATE = CORNER
+            else :
+                vy = -VELOCITY
+            if checkedleft:
+                direction = -1
+        else:
+            if y < 1.5 and direction == 0:
+                vy = VELOCITY
+                direction = 1
+                checkedleft = True
+            elif direction == 0:
+                vy = -VELOCITY
+                direction = -1
+                checkedright = True
+            else:
+                vy = VELOCITY * direction
+    else:
+        print("Front")
+        vx = VELOCITY
+        direction = 0
+        checkedright = False
+        checkedleft = False
+    return x, y, vx, vy
 
+# Obstacle avoidance when an encounter with an obstacle happens near the
+# border of the map
+def corner(x, y, vx, vy):
+    if y < 1.5:
+        if (is_close(multiranger.left)):
+            vx = -VELOCITY
+        else:
+            motion_commander.start_linear_motion(0, VELOCITY, 0)
+            time.sleep(0.5)
+            y += VELOCITY * 0.5
+            if not(is_close(multiranger.front)):
+                STATE = ADVANCE
+    else:
+        if (is_close(multiranger.right)):
+            vx = -VELOCITY
+        else:
+            motion_commander.start_linear_motion(0, -VELOCITY, 0)
+            time.sleep(0.5)
+            y -= VELOCITY * 0.5
+            if not(is_close(multiranger.front)):
+                STATE = ADVANCE
+    return x, y, vx, vy
+
+# Search for the landing pad in when in the landing region
+# Landing pad is detected when the z-range finder records a decrease
+def goal(x, y, vx, vy):
+    if multiranger.down > 0.17:
+        if y <= 1.5 and not line0:
+            vy = -VELOCITY
+        elif y > 1.5 and not line3:
+            vy = VELOCITY
+        if y < 0.15:
+            line0 = True
+        if is_close(multiranger.right):
+            line0 = True
+        if y > 2.85 or is_close(multiranger.left):
+            line3 = True
+        if line3 and line0:
+            print("fin de ligne")
+            if x > 4.85:
+                print("goal not found")
+                keep_flying = false
+            elif is_close(multiranger.front):
+                if y > 1.5:
+                    vy = -VELOCTIY
+                else:
+                    vy = VELOCITY
+            else:
+                motion_commander.start_linear_motion(VELOCITY, 0, 0)
+                time.sleep(1)
+                grid[floor(x*10)+1][floor(y*10)] = 2
+                x += VELOCITY * 1
+                line0 = False
+                line3 = False
+        elif line0 and not is_close(multiranger.left):
+            vy = VELOCITY
+        elif line3 and not is_close(multiranger.right):
+            vy = -VELOCITY
+    else:
+        motion_commander.start_linear_motion(0, 0, 0)
+        time.sleep(1)
+        STATE = LANDING
+        VELOCITY = VELOCITY / 2
+    return x, y, vx, vy
+
+# Detect the edge of the landing pad in order to land in its center
+def landing(x, y, vx, vy, prev_vx, prev_vy):
+    if prev_vy != 0 and first:
+        if prev_vy > 0:
+            y_r = y
+            L_STATE = L_LEFT
+        else:
+            y_l = y
+            L_STATE = L_RIGHT
+    if prev_vx != 0 and first:
+        if prev_vx > 0:
+            x_b = x
+            L_STATE = L_FRONT
+        else:
+            x_f = x
+            L_STATE = L_BACK
+    if L_STATE == L_LEFT:
+        vy = VELOCITY
+        if not x_found:
+            if multiranger.down>height_thresh and abs(y-y_r) > 0.2:
+                motion_commander.start_linear_motion(0, 0, 0)
+                time.sleep(1.5)
+                y_l = y
+                L_STATE = L_MIDDLE_Y
+        else:
+            if multiranger.down>height_thresh and abs(y-y_r) > 0.2:
+                motion_commander.start_linear_motion(0, 0, 0)
+                time.sleep(1.5)
+                y_l = y
+                L_STATE = L_MIDDLE_Y
+    if L_STATE == L_RIGHT:
+        vy = -VELOCITY
+        if not x_found:
+            if multiranger.down>height_thresh and abs(y-y_l) > 0.2:
+                motion_commander.start_linear_motion(0, 0, 0)
+                time.sleep(1.5)
+                y_r = y
+                L_STATE = L_MIDDLE_Y
+        else:
+            if multiranger.down>height_thresh:
+                motion_commander.start_linear_motion(0, 0, 0)
+                time.sleep(1.5)
+                y_r = y
+                L_STATE = L_LEFT
+    if L_STATE == L_MIDDLE_Y:
+        diff = (y_l+y_r)/2-y
+##      print(str(round(y_l,2)) + " " + str(round(y_r,2)) + " " + str(round(y,2)))
+        vy = np.sign(diff)*VELOCITY
+        if abs(diff) < 0.02:
+            vy = np.sign(diff)*VELOCITY/2
+        if abs(diff) < 0.01:
+            time.sleep(1)
+            L_STATE = L_BACK
+            y_found = True
+    if L_STATE == L_BACK:
+        vx = -VELOCITY
+        if not y_found:
+            if multiranger.down>height_thresh and abs(x-x_f) > 0.2:
+                motion_commander.start_linear_motion(0, 0, 0)
+                time.sleep(1.5)
+                x_b = x
+                L_STATE = L_MIDDLE_X
+        else:
+            if multiranger.down>height_thresh:
+                motion_commander.start_linear_motion(0, 0, 0)
+                time.sleep(1.5)
+                x_b = x
+                L_STATE = L_FRONT
+    if L_STATE == L_FRONT:
+        vx = VELOCITY
+        if not y_found:
+            if multiranger.down>height_thresh and abs(x-x_b) > 0.2:
+                motion_commander.start_linear_motion(0, 0, 0)
+                time.sleep(1.5)
+                x_f = x
+                L_STATE = L_MIDDLE_X
+        else:
+            if multiranger.down>height_thresh and abs(x-x_b) > 0.2:
+                motion_commander.start_linear_motion(0, 0, 0)
+                time.sleep(1.5)
+                x_f = x
+                L_STATE = L_MIDDLE_X
+    if L_STATE == L_MIDDLE_X:
+        diff = (x_b+x_f)/2-x
+##      print(str(round(x_b,2)) + " " + str(round(x_f,2)) + " " + str(round(x,2)))
+        vx = np.sign(diff)*VELOCITY
+        if abs(diff) < 0.02:
+            vx = np.sign(diff)*VELOCITY/2
+        if abs(diff) < 0.01:
+            time.sleep(1)
+            L_STATE = L_RIGHT
+            x_found = True
+
+    first = False
+    if x_found and y_found:
+        print("found goal, landing")
+        motion_commander.start_linear_motion(0, 0, 0)
+        time.sleep(2.5)
+##      keep_flying = False
+        STATE = RETURN
+        goal_pos = (x,y)
+        
 def is_close(range):
     MIN_DISTANCE = 0.2  # m
 
@@ -175,15 +412,11 @@ if __name__ == '__main__':
                 STATE = ADVANCE
                 L_STATE = L_RIGHT
                 time.sleep(1)
-                direction = 0
-                checkedright=False
-                checkedleft=False
                 line0 = False
-                line3 = True
+                line3 = False
+                y_not_expl = []
                 height = "down"
-                coords_border = [0, 0, 0, 0]
-                counter_height = 0
-                onthebox = 0
+                height_thresh = motion_commander.default_height + 0.03
                 
                 while keep_flying:
                     vx = 0
@@ -193,188 +426,217 @@ if __name__ == '__main__':
                     if STATE == ADVANCE:
                         if x > 0.5:
                             STATE = GOAL
-                        if (is_close(multiranger.front)):
-                            if is_close(multiranger.right) and is_close(multiranger.left):
-                                print("U")
-                                (x,y) = get_off_U(x,y)
-                            elif (is_close(multiranger.right)):
-                                print("Left")
-                                if y > 2.8:
-                                    STATE = CORNER
-                                else:
-                                    vy = VELOCITY
-                                if checkedright:
-                                    direction = 1
-                            elif (is_close(multiranger.left)):
-                                print("Right")
-                                if y < 0.2:
-                                    STATE = CORNER
-                                else :
-                                    vy = -VELOCITY
-                                if checkedleft:
-                                    direction = -1
-                            else:
-                                if y < 1.5 and direction == 0:
-                                    vy = VELOCITY
-                                    direction = 1
-                                    checkedleft = True
-                                elif direction == 0:
-                                    vy = -VELOCITY
-                                    direction = -1
-                                    checkedright = True
-                                else:
-                                    vy = VELOCITY * direction
-                        else:
-                            print("Front")
-                            vx = VELOCITY
-                            direction = 0
-                            checkedright = False
-                            checkedleft = False
+                            x=3.5
+                        x, y, vx, vy = advance(x, y, vx, vy)
+##                        if (is_close(multiranger.front)):
+##                            if is_close(multiranger.right) and is_close(multiranger.left):
+##                                print("U")
+##                                (x,y) = get_off_U(x,y)
+##                            elif (is_close(multiranger.right)):
+##                                print("Left")
+##                                if y > 2.8:
+##                                    STATE = CORNER
+##                                else:
+##                                    vy = VELOCITY
+##                                if checkedright:
+##                                    direction = 1
+##                            elif (is_close(multiranger.left)):
+##                                print("Right")
+##                                if y < 0.2:
+##                                    STATE = CORNER
+##                                else :
+##                                    vy = -VELOCITY
+##                                if checkedleft:
+##                                    direction = -1
+##                            else:
+##                                if y < 1.5 and direction == 0:
+##                                    vy = VELOCITY
+##                                    direction = 1
+##                                    checkedleft = True
+##                                elif direction == 0:
+##                                    vy = -VELOCITY
+##                                    direction = -1
+##                                    checkedright = True
+##                                else:
+##                                    vy = VELOCITY * direction
+##                        else:
+##                            print("Front")
+##                            vx = VELOCITY
+##                            direction = 0
+##                            checkedright = False
+##                            checkedleft = False
                     elif STATE == CORNER:
-                        if y < 1.5:
-                            if (is_close(multiranger.left)):
-                                vx = -VELOCITY
-                            else:
-                                motion_commander.start_linear_motion(0, VELOCITY, 0)
-                                time.sleep(0.5)
-                                y += VELOCITY * 0.5
-                                if not(is_close(multiranger.front)):
-                                    STATE = ADVANCE
-                        else:
-                            if (is_close(multiranger.right)):
-                                vx = -VELOCITY
-                            else:
-                                motion_commander.start_linear_motion(0, -VELOCITY, 0)
-                                time.sleep(0.5)
-                                y -= VELOCITY * 0.5
-                                if not(is_close(multiranger.front)):
-                                    STATE = ADVANCE
+                        x, y, vx, vy = corner(x, y, vx, vy)
+##                        if y < 1.5:
+##                            if (is_close(multiranger.left)):
+##                                vx = -VELOCITY
+##                            else:
+##                                motion_commander.start_linear_motion(0, VELOCITY, 0)
+##                                time.sleep(0.5)
+##                                y += VELOCITY * 0.5
+##                                if not(is_close(multiranger.front)):
+##                                    STATE = ADVANCE
+##                        else:
+##                            if (is_close(multiranger.right)):
+##                                vx = -VELOCITY
+##                            else:
+##                                motion_commander.start_linear_motion(0, -VELOCITY, 0)
+##                                time.sleep(0.5)
+##                                y -= VELOCITY * 0.5
+##                                if not(is_close(multiranger.front)):
+##                                    STATE = ADVANCE
                     elif STATE == GOAL:
-                        x=3.5
-                        if multiranger.down>0.15:
-                            if x < 3.7 and y <= 1.5 and not line0:
-                                vy = -VELOCITY
-                            elif x < 3.7 and y > 1.5 and not line3:
-                                vy = VELOCITY
-                            if y < 0.2 or is_close(multiranger.right):
-                                line0 = True
-                            if y > 2.8 or is_close(multiranger.left):
-                                line3 = True
-                            if line3 and line0:
-                                vx = VELOCITY
-                                line0 = False
-                                line3 = False
-                            elif line0 and not is_close(multiranger.left):
-                                vy = VELOCITY
-                            elif line3 and not is_close(multiranger.right):
-                                vy = -VELOCITY
-##                            if is_close(multiranger.down):
-##                                 keep_flying = False
-                        else:
-                            motion_commander.start_linear_motion(0, 0, 0)
-                            time.sleep(1)
-                            STATE = LANDING
-                            VELOCITY = VELOCITY / 2
-                            first = True
-                            x_found = False
-                            y_found = False
+                        print("State: " + str(STATE) + " x: " + str(round(x,2)) + " y: "+ str(round(y,2)) + " line0: "+ str(line0) +" line3: " + str(line3))
+                        x, y, vx, vy = goal(x, y, vx, vy)
+##                        if multiranger.down>0.17:
+##                            if y <= 1.5 and not line0:
+##                                vy = -VELOCITY
+##                            elif y > 1.5 and not line3:
+##                                vy = VELOCITY
+##                            if y < 0.15 or is_close(multiranger.right):
+##                                line0 = True
+##                            if y > 2.85 or is_close(multiranger.left):
+##                                line3 = True
+##                            if line3 and line0:
+##                                print("fin de ligne")
+##                                if x > 4.85:
+##                                    print("goal not found")
+##                                    keep_flying = false
+##                                elif is_close(multiranger.front):
+##                                    if y > 1.5:
+##                                        vy = -VELOCTIY
+##                                    else:
+##                                        vy = VELOCITY
+##                                else:
+##                                    motion_commander.start_linear_motion(VELOCITY, 0, 0)
+##                                    time.sleep(1)
+##                                    grid[floor(x*10)+1][floor(y*10)] = 2
+##                                    x += VELOCITY * 1
+##                                    line0 = False
+##                                    line3 = False
+##                            elif line0 and not is_close(multiranger.left):
+##                                vy = VELOCITY
+##                            elif line3 and not is_close(multiranger.right):
+##                                vy = -VELOCITY
+##                        else:
+##                            motion_commander.start_linear_motion(0, 0, 0)
+##                            time.sleep(1)
+##                            STATE = LANDING
+##                            VELOCITY = VELOCITY / 2
+##                            first = True
+##                            x_found = False
+##                            y_found = False
                     if STATE == LANDING:
-                        print(str(prev_vy) + " "+ str(L_STATE) + " " + str(multiranger.down))
-                        if prev_vy != 0 and first:
-                            if prev_vy > 0:
-                                y_r = y
-                                L_STATE = L_LEFT
-                            else:
-                                y_l = y
-                                L_STATE = L_RIGHT
-                        if prev_vx != 0 and first:
-                            if prev_vx > 0:
-                                x_b = x
-                                L_STATE = L_FRONT
-                            else:
-                                x_f = x
-                                L_STATE = L_BACK
-                        if L_STATE == L_LEFT:
-                            vy = VELOCITY
-                            if not x_found:
-                                if multiranger.down>0.25 and abs(y-y_r) > 0.15:
-                                    motion_commander.start_linear_motion(0, 0, 0)
-                                    time.sleep(1)
-                                    y_l = y
-                                    L_STATE = L_MIDDLE_Y
-                            else:
-                                if multiranger.down>0.25 and abs(y-y_r) > 0.15:
-                                    motion_commander.start_linear_motion(0, 0, 0)
-                                    time.sleep(1)
-                                    y_l = y
-                                    L_STATE = L_MIDDLE_Y
-                        if L_STATE == L_RIGHT:
-                            vy = -VELOCITY
-                            if not x_found:
-                                if multiranger.down>0.25 and abs(y-y_l) > 0.15:
-                                    motion_commander.start_linear_motion(0, 0, 0)
-                                    time.sleep(1)
-                                    y_r = y
-                                    L_STATE = L_MIDDLE_Y
-                            else:
-                                if multiranger.down>0.25:
-                                    motion_commander.start_linear_motion(0, 0, 0)
-                                    time.sleep(1)
-                                    y_r = y
-                                    L_STATE = L_LEFT
-                        if L_STATE == L_MIDDLE_Y:
-                            diff = (y_l+y_r)/2-y
-                            print(str(round(y_l,2)) + " " + str(round(y_r,2)) + " " + str(round(y,2)))
-                            vy = np.sign(diff)*VELOCITY
-                            if abs(diff) < 0.02:
-                                vy = np.sign(diff)*VELOCITY/2
-                            if abs(diff) < 0.01:
-                                time.sleep(1)
-                                L_STATE = L_BACK
-                                y_found = True
-                        if L_STATE == L_BACK:
-                            vx = -VELOCITY
-                            if not y_found:
-                                if multiranger.down>0.25 and abs(x-x_f) > 0.15:
-                                    motion_commander.start_linear_motion(0, 0, 0)
-                                    time.sleep(1)
-                                    x_b = x
-                                    L_STATE = L_MIDDLE_X
-                            else:
-                                if multiranger.down>0.25:
-                                    motion_commander.start_linear_motion(0, 0, 0)
-                                    time.sleep(1)
-                                    x_b = x
-                                    L_STATE = L_FRONT
-                        if L_STATE == L_FRONT:
-                            vx = VELOCITY
-                            if not y_found:
-                                if multiranger.down>0.25 and abs(x-x_b) > 0.15:
-                                    motion_commander.start_linear_motion(0, 0, 0)
-                                    time.sleep(1)
-                                    x_f = x
-                                    L_STATE = L_MIDDLE_X
-                            else:
-                                if multiranger.down>0.25 and abs(x-x_b) > 0.15:
-                                    motion_commander.start_linear_motion(0, 0, 0)
-                                    time.sleep(1)
-                                    x_f = x
-                                    L_STATE = L_MIDDLE_X
-                        if L_STATE == L_MIDDLE_X:
-                            diff = (x_b+x_f)/2-x
-                            print(str(round(x_b,2)) + " " + str(round(x_f,2)) + " " + str(round(x,2)))
-                            vx = np.sign(diff)*VELOCITY
-                            if abs(diff) < 0.02:
-                                vx = np.sign(diff)*VELOCITY/2
-                            if abs(diff) < 0.01:
-                                time.sleep(1)
-                                L_STATE = L_RIGHT
-                                x_found = True
-
-                        first = False
-                        if x_found and y_found:
+                        print("L_State: " + str(L_STATE) + " x: " + str(round(x,2)) + " y: "+ str(round(y,2)) + " height: "+ str(multiranger.down))
+                        x, y, vx, vy = landing(x, y, vx, vy, prev_vx, prev_vy)
+##                        if prev_vy != 0 and first:
+##                            if prev_vy > 0:
+##                                y_r = y
+##                                L_STATE = L_LEFT
+##                            else:
+##                                y_l = y
+##                                L_STATE = L_RIGHT
+##                        if prev_vx != 0 and first:
+##                            if prev_vx > 0:
+##                                x_b = x
+##                                L_STATE = L_FRONT
+##                            else:
+##                                x_f = x
+##                                L_STATE = L_BACK
+##                        if L_STATE == L_LEFT:
+##                            vy = VELOCITY
+##                            if not x_found:
+##                                if multiranger.down>height_thresh and abs(y-y_r) > 0.2:
+##                                    motion_commander.start_linear_motion(0, 0, 0)
+##                                    time.sleep(1.5)
+##                                    y_l = y
+##                                    L_STATE = L_MIDDLE_Y
+##                            else:
+##                                if multiranger.down>height_thresh and abs(y-y_r) > 0.2:
+##                                    motion_commander.start_linear_motion(0, 0, 0)
+##                                    time.sleep(1.5)
+##                                    y_l = y
+##                                    L_STATE = L_MIDDLE_Y
+##                        if L_STATE == L_RIGHT:
+##                            vy = -VELOCITY
+##                            if not x_found:
+##                                if multiranger.down>height_thresh and abs(y-y_l) > 0.2:
+##                                    motion_commander.start_linear_motion(0, 0, 0)
+##                                    time.sleep(1.5)
+##                                    y_r = y
+##                                    L_STATE = L_MIDDLE_Y
+##                            else:
+##                                if multiranger.down>height_thresh:
+##                                    motion_commander.start_linear_motion(0, 0, 0)
+##                                    time.sleep(1.5)
+##                                    y_r = y
+##                                    L_STATE = L_LEFT
+##                        if L_STATE == L_MIDDLE_Y:
+##                            diff = (y_l+y_r)/2-y
+####                            print(str(round(y_l,2)) + " " + str(round(y_r,2)) + " " + str(round(y,2)))
+##                            vy = np.sign(diff)*VELOCITY
+##                            if abs(diff) < 0.02:
+##                                vy = np.sign(diff)*VELOCITY/2
+##                            if abs(diff) < 0.01:
+##                                time.sleep(1)
+##                                L_STATE = L_BACK
+##                                y_found = True
+##                        if L_STATE == L_BACK:
+##                            vx = -VELOCITY
+##                            if not y_found:
+##                                if multiranger.down>height_thresh and abs(x-x_f) > 0.2:
+##                                    motion_commander.start_linear_motion(0, 0, 0)
+##                                    time.sleep(1.5)
+##                                    x_b = x
+##                                    L_STATE = L_MIDDLE_X
+##                            else:
+##                                if multiranger.down>height_thresh:
+##                                    motion_commander.start_linear_motion(0, 0, 0)
+##                                    time.sleep(1.5)
+##                                    x_b = x
+##                                    L_STATE = L_FRONT
+##                        if L_STATE == L_FRONT:
+##                            vx = VELOCITY
+##                            if not y_found:
+##                                if multiranger.down>height_thresh and abs(x-x_b) > 0.2:
+##                                    motion_commander.start_linear_motion(0, 0, 0)
+##                                    time.sleep(1.5)
+##                                    x_f = x
+##                                    L_STATE = L_MIDDLE_X
+##                            else:
+##                                if multiranger.down>height_thresh and abs(x-x_b) > 0.2:
+##                                    motion_commander.start_linear_motion(0, 0, 0)
+##                                    time.sleep(1.5)
+##                                    x_f = x
+##                                    L_STATE = L_MIDDLE_X
+##                        if L_STATE == L_MIDDLE_X:
+##                            diff = (x_b+x_f)/2-x
+####                            print(str(round(x_b,2)) + " " + str(round(x_f,2)) + " " + str(round(x,2)))
+##                            vx = np.sign(diff)*VELOCITY
+##                            if abs(diff) < 0.02:
+##                                vx = np.sign(diff)*VELOCITY/2
+##                            if abs(diff) < 0.01:
+##                                time.sleep(1)
+##                                L_STATE = L_RIGHT
+##                                x_found = True
+##
+##                        first = False
+##                        if x_found and y_found:
+##                            print("found goal, landing")
+##                            motion_commander.start_linear_motion(0, 0, 0)
+##                            time.sleep(2.5)
+####                            keep_flying = False
+##                            STATE = RETURN
+##                            goal_pos = (x,y)
+##                            x = x - 3
+                    if STATE == RETURN:
+                        diff_x = x0 - x
+                        diff_y = y0 - y
+                        print("x: " + str(round(x,2)) + " y: " + str(round(y,2)))
+                        vx = np.sign(diff_x)*VELOCITY
+                        vy = np.sign(diff_y)*VELOCITY
+                        if abs(diff_x) < 0.1 and abs(diff_y) < 0.1:
                             keep_flying = False
-                    
                     motion_commander.start_linear_motion(vx, vy, 0)
                     prev_vx = vx
                     prev_vy = vy
@@ -388,7 +650,8 @@ if __name__ == '__main__':
                     grid = update_grid(grid, x, y)
                     grid[floor(x*10)][floor(y*10)] = 2
 
-            
+
+grid[floor(10*goal_pos[0])][floor(10*goal_pos[1])] = 6
 grid = color_zone(grid)
 ax.imshow(np.transpose(grid), cmap=cmap)
 plt.show()
