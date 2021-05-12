@@ -1,9 +1,29 @@
+"""
+Aerial robotics course, crazyflie miniproject 2021
+Alexandre Clivaz, Bruno Da Costa, Maïk Guihard
+"""
+###############################################################################
+############################### Imports #######################################
+###############################################################################
+
 from scipy import *
 from math import *
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import cv2
+import time
+import sys
+import cflib.crtp
+from cflib.crazyflie import Crazyflie
+from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
+from cflib.positioning.position_hl_commander import PositionHlCommander
+from cflib.utils.multiranger import Multiranger
+from cflib.positioning.motion_commander import MotionCommander
+
+###############################################################################
+#################### Functions used for the grid ##############################
+###############################################################################
 
 def create_empty_plot(size_x,size_y):
     fig, ax = plt.subplots(figsize=(7,7))
@@ -22,104 +42,13 @@ def create_empty_plot(size_x,size_y):
     ax.grid(True)
     return fig, ax
 
-cmap = colors.ListedColormap(['white', 'black', 'red','blue','green', 'yellow'])
+def is_close(range):
+    MIN_DISTANCE = 0.2  # m
 
-img_size = (50, 30)
-grid = np.zeros((img_size[0],img_size[1]))
-
-fig, ax = create_empty_plot(img_size[1], img_size[0])
-#ax.scatter(0.5,1, marker="o", color = 'orange')
-ax.imshow(grid, cmap = cmap)
-
-
-
-# -*- coding: utf-8 -*-
-#
-#     ||          ____  _ __
-#  +------+      / __ )(_) /_______________ _____  ___
-#  | 0xBC |     / __  / / __/ ___/ ___/ __ `/_  / / _ \
-#  +------+    / /_/ / / /_/ /__/ /  / /_/ / / /_/  __/
-#   ||  ||    /_____/_/\__/\___/_/   \__,_/ /___/\___/
-#
-#  Copyright (C) 2018 Bitcraze AB
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-#  MA  02110-1301, USA.
-"""
-This script shows the basic use of the PositionHlCommander class.
-Simple example that connects to the crazyflie at `URI` and runs a
-sequence. This script requires some kind of location system.
-The PositionHlCommander uses position setpoints.
-Change the URI variable to your Crazyflie configuration.
-"""
-import cflib.crtp
-import time
-import sys
-from cflib.crazyflie import Crazyflie
-from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
-from cflib.positioning.position_hl_commander import PositionHlCommander
-from cflib.utils.multiranger import Multiranger
-from cflib.positioning.motion_commander import MotionCommander
-
-# URI to the Crazyflie to connect to
-uri = 'radio://0/10/2M/E7E7E7E7E7'
-# initial position
-x0 = 0
-y0 = 0
-# State of the drone
-ADVANCE = 1
-GOAL = 2
-CORNER = 3
-LANDING = 4
-RETURN = 5
-
-# State when locating the landing pad
-L_RIGHT = 1
-L_BACK = 2
-L_LEFT = 3
-L_FRONT = 4
-L_MIDDLE_Y = 5
-L_MIDDLE_X = 6
-
-# Used to select a direction when encountering an obstacle
-direction = 0
-checkedright=False
-checkedleft=False
-# True until the end of the first passsage in landing state, used to know
-# in which direction (x,-x,y,-y) the drone found the landing pad
-first = True
-# True if the x (y) position of the landing pad center is found
-x_found = False
-y_found = False
-# height threshold for the detection of a 'fall', when passing from the landing pad
-# to the ground (set once the height of the flight is defined)
-height_thresh = 0
-# Set of points not explored in the landing zone due to obstacles
-x_obst = []
-ÿ_obst = []
-# x and y positions of the edge of the landing pad
-y_l = 0 # y left
-y_r = 0 # y right
-x_b = 0 # x back
-x_f = 0 # x front
-# position of the landing pad center
-goal_pos = (-1,-1)
-
-if len(sys.argv) >1:
-    x0 = float(sys.argv[1])
-    if len(sys.argv) >2:
-        y0 = float(sys.argv[2])
+    if range is None:
+        return False
+    else:
+        return range < MIN_DISTANCE
 
 def update_grid(grid, x, y):
     multx = img_size[0]/5
@@ -153,8 +82,25 @@ def color_zone(grid):
                 grid[x][y]=4
     return grid
 
+def grow_obstacles(grid):
+    sx, sy = grid.shape
+    sx = range(sx)
+    sy = range(sy)
+    for x in sx:
+        for y in sy:
+            for i in [-1, 1]:
+                for j in [-1, 1]:
+                    if x+i in sx and y+j in sy:
+                        if grid[x+i][y+j] == 1:
+                            grid[x][y] = -1;
+    grid[grid==-1] = 1
+    return grid
 
 
+###############################################################################
+####################### Functions for each state ##############################
+###############################################################################
+                        
 def get_off_U(x,y,VELOCITY = 0.2):
     while is_close(multiranger.right) and is_close(multiranger.left) and not is_close(multiranger.back):
         motion_commander.start_linear_motion(-VELOCITY, 0, 0)
@@ -388,14 +334,77 @@ def landing(x, y, vx, vy, prev_vx, prev_vy):
 ##      keep_flying = False
         STATE = RETURN
         goal_pos = (x,y)
-        
-def is_close(range):
-    MIN_DISTANCE = 0.2  # m
 
-    if range is None:
-        return False
-    else:
-        return range < MIN_DISTANCE
+
+###############################################################################
+############################ Variables ########################################
+###############################################################################
+
+# URI to the Crazyflie to connect to
+uri = 'radio://0/10/2M/E7E7E7E7E7'
+
+cmap = colors.ListedColormap(['white', 'black', 'red','blue','green', 'yellow'])
+
+img_size = (50, 30)
+grid = np.zeros((img_size[0],img_size[1]))
+fig, ax = create_empty_plot(img_size[1], img_size[0])
+
+# initial position
+x0 = 0
+y0 = 0
+
+# State of the drone
+ADVANCE = 1
+GOAL = 2
+CORNER = 3
+LANDING = 4
+RETURN = 5
+# State when locating the landing pad
+L_RIGHT = 1
+L_BACK = 2
+L_LEFT = 3
+L_FRONT = 4
+L_MIDDLE_Y = 5
+L_MIDDLE_X = 6
+
+# Used to select a direction when encountering an obstacle
+direction = 0
+checkedright=False
+checkedleft=False
+
+# True until the end of the first passsage in landing state, used to know
+# in which direction (x,-x,y,-y) the drone found the landing pad
+first = True
+# True if the x (y) position of the landing pad center is found
+x_found = False
+y_found = False
+
+# height threshold for the detection of a 'fall', when passing from the landing pad
+# to the ground (set once the height of the flight is defined)
+height_thresh = 0
+
+# Set of points not explored in the landing zone due to obstacles
+x_obst = []
+y_obst = []
+
+# x and y positions of the edge of the landing pad
+y_l = 0 # y left
+y_r = 0 # y right
+x_b = 0 # x back
+x_f = 0 # x front
+# position of the landing pad center
+goal_pos = (-1,-1)
+
+###############################################################################
+##################### Beginning of the program ################################
+###############################################################################
+
+# A starting position can be provided as input to the script
+if len(sys.argv) >1:
+    x0 = float(sys.argv[1])
+    if len(sys.argv) >2:
+        y0 = float(sys.argv[2])
+
 
 if __name__ == '__main__':
     cflib.crtp.init_drivers(enable_debug_driver=False)
@@ -417,218 +426,32 @@ if __name__ == '__main__':
                 y_not_expl = []
                 height = "down"
                 height_thresh = motion_commander.default_height + 0.03
-                
+
+                # Main loop of the controller
                 while keep_flying:
+                    
                     vx = 0
                     vy = 0
-                    # Main loop of the controller
                         
                     if STATE == ADVANCE:
+                        # ----- TEMPORAIRE -----
                         if x > 0.5:
                             STATE = GOAL
                             x=3.5
+                        # ----------------------
                         x, y, vx, vy = advance(x, y, vx, vy)
-##                        if (is_close(multiranger.front)):
-##                            if is_close(multiranger.right) and is_close(multiranger.left):
-##                                print("U")
-##                                (x,y) = get_off_U(x,y)
-##                            elif (is_close(multiranger.right)):
-##                                print("Left")
-##                                if y > 2.8:
-##                                    STATE = CORNER
-##                                else:
-##                                    vy = VELOCITY
-##                                if checkedright:
-##                                    direction = 1
-##                            elif (is_close(multiranger.left)):
-##                                print("Right")
-##                                if y < 0.2:
-##                                    STATE = CORNER
-##                                else :
-##                                    vy = -VELOCITY
-##                                if checkedleft:
-##                                    direction = -1
-##                            else:
-##                                if y < 1.5 and direction == 0:
-##                                    vy = VELOCITY
-##                                    direction = 1
-##                                    checkedleft = True
-##                                elif direction == 0:
-##                                    vy = -VELOCITY
-##                                    direction = -1
-##                                    checkedright = True
-##                                else:
-##                                    vy = VELOCITY * direction
-##                        else:
-##                            print("Front")
-##                            vx = VELOCITY
-##                            direction = 0
-##                            checkedright = False
-##                            checkedleft = False
+
                     elif STATE == CORNER:
                         x, y, vx, vy = corner(x, y, vx, vy)
-##                        if y < 1.5:
-##                            if (is_close(multiranger.left)):
-##                                vx = -VELOCITY
-##                            else:
-##                                motion_commander.start_linear_motion(0, VELOCITY, 0)
-##                                time.sleep(0.5)
-##                                y += VELOCITY * 0.5
-##                                if not(is_close(multiranger.front)):
-##                                    STATE = ADVANCE
-##                        else:
-##                            if (is_close(multiranger.right)):
-##                                vx = -VELOCITY
-##                            else:
-##                                motion_commander.start_linear_motion(0, -VELOCITY, 0)
-##                                time.sleep(0.5)
-##                                y -= VELOCITY * 0.5
-##                                if not(is_close(multiranger.front)):
-##                                    STATE = ADVANCE
+
                     elif STATE == GOAL:
                         print("State: " + str(STATE) + " x: " + str(round(x,2)) + " y: "+ str(round(y,2)) + " line0: "+ str(line0) +" line3: " + str(line3))
                         x, y, vx, vy = goal(x, y, vx, vy)
-##                        if multiranger.down>0.17:
-##                            if y <= 1.5 and not line0:
-##                                vy = -VELOCITY
-##                            elif y > 1.5 and not line3:
-##                                vy = VELOCITY
-##                            if y < 0.15 or is_close(multiranger.right):
-##                                line0 = True
-##                            if y > 2.85 or is_close(multiranger.left):
-##                                line3 = True
-##                            if line3 and line0:
-##                                print("fin de ligne")
-##                                if x > 4.85:
-##                                    print("goal not found")
-##                                    keep_flying = false
-##                                elif is_close(multiranger.front):
-##                                    if y > 1.5:
-##                                        vy = -VELOCTIY
-##                                    else:
-##                                        vy = VELOCITY
-##                                else:
-##                                    motion_commander.start_linear_motion(VELOCITY, 0, 0)
-##                                    time.sleep(1)
-##                                    grid[floor(x*10)+1][floor(y*10)] = 2
-##                                    x += VELOCITY * 1
-##                                    line0 = False
-##                                    line3 = False
-##                            elif line0 and not is_close(multiranger.left):
-##                                vy = VELOCITY
-##                            elif line3 and not is_close(multiranger.right):
-##                                vy = -VELOCITY
-##                        else:
-##                            motion_commander.start_linear_motion(0, 0, 0)
-##                            time.sleep(1)
-##                            STATE = LANDING
-##                            VELOCITY = VELOCITY / 2
-##                            first = True
-##                            x_found = False
-##                            y_found = False
+
                     if STATE == LANDING:
                         print("L_State: " + str(L_STATE) + " x: " + str(round(x,2)) + " y: "+ str(round(y,2)) + " height: "+ str(multiranger.down))
                         x, y, vx, vy = landing(x, y, vx, vy, prev_vx, prev_vy)
-##                        if prev_vy != 0 and first:
-##                            if prev_vy > 0:
-##                                y_r = y
-##                                L_STATE = L_LEFT
-##                            else:
-##                                y_l = y
-##                                L_STATE = L_RIGHT
-##                        if prev_vx != 0 and first:
-##                            if prev_vx > 0:
-##                                x_b = x
-##                                L_STATE = L_FRONT
-##                            else:
-##                                x_f = x
-##                                L_STATE = L_BACK
-##                        if L_STATE == L_LEFT:
-##                            vy = VELOCITY
-##                            if not x_found:
-##                                if multiranger.down>height_thresh and abs(y-y_r) > 0.2:
-##                                    motion_commander.start_linear_motion(0, 0, 0)
-##                                    time.sleep(1.5)
-##                                    y_l = y
-##                                    L_STATE = L_MIDDLE_Y
-##                            else:
-##                                if multiranger.down>height_thresh and abs(y-y_r) > 0.2:
-##                                    motion_commander.start_linear_motion(0, 0, 0)
-##                                    time.sleep(1.5)
-##                                    y_l = y
-##                                    L_STATE = L_MIDDLE_Y
-##                        if L_STATE == L_RIGHT:
-##                            vy = -VELOCITY
-##                            if not x_found:
-##                                if multiranger.down>height_thresh and abs(y-y_l) > 0.2:
-##                                    motion_commander.start_linear_motion(0, 0, 0)
-##                                    time.sleep(1.5)
-##                                    y_r = y
-##                                    L_STATE = L_MIDDLE_Y
-##                            else:
-##                                if multiranger.down>height_thresh:
-##                                    motion_commander.start_linear_motion(0, 0, 0)
-##                                    time.sleep(1.5)
-##                                    y_r = y
-##                                    L_STATE = L_LEFT
-##                        if L_STATE == L_MIDDLE_Y:
-##                            diff = (y_l+y_r)/2-y
-####                            print(str(round(y_l,2)) + " " + str(round(y_r,2)) + " " + str(round(y,2)))
-##                            vy = np.sign(diff)*VELOCITY
-##                            if abs(diff) < 0.02:
-##                                vy = np.sign(diff)*VELOCITY/2
-##                            if abs(diff) < 0.01:
-##                                time.sleep(1)
-##                                L_STATE = L_BACK
-##                                y_found = True
-##                        if L_STATE == L_BACK:
-##                            vx = -VELOCITY
-##                            if not y_found:
-##                                if multiranger.down>height_thresh and abs(x-x_f) > 0.2:
-##                                    motion_commander.start_linear_motion(0, 0, 0)
-##                                    time.sleep(1.5)
-##                                    x_b = x
-##                                    L_STATE = L_MIDDLE_X
-##                            else:
-##                                if multiranger.down>height_thresh:
-##                                    motion_commander.start_linear_motion(0, 0, 0)
-##                                    time.sleep(1.5)
-##                                    x_b = x
-##                                    L_STATE = L_FRONT
-##                        if L_STATE == L_FRONT:
-##                            vx = VELOCITY
-##                            if not y_found:
-##                                if multiranger.down>height_thresh and abs(x-x_b) > 0.2:
-##                                    motion_commander.start_linear_motion(0, 0, 0)
-##                                    time.sleep(1.5)
-##                                    x_f = x
-##                                    L_STATE = L_MIDDLE_X
-##                            else:
-##                                if multiranger.down>height_thresh and abs(x-x_b) > 0.2:
-##                                    motion_commander.start_linear_motion(0, 0, 0)
-##                                    time.sleep(1.5)
-##                                    x_f = x
-##                                    L_STATE = L_MIDDLE_X
-##                        if L_STATE == L_MIDDLE_X:
-##                            diff = (x_b+x_f)/2-x
-####                            print(str(round(x_b,2)) + " " + str(round(x_f,2)) + " " + str(round(x,2)))
-##                            vx = np.sign(diff)*VELOCITY
-##                            if abs(diff) < 0.02:
-##                                vx = np.sign(diff)*VELOCITY/2
-##                            if abs(diff) < 0.01:
-##                                time.sleep(1)
-##                                L_STATE = L_RIGHT
-##                                x_found = True
-##
-##                        first = False
-##                        if x_found and y_found:
-##                            print("found goal, landing")
-##                            motion_commander.start_linear_motion(0, 0, 0)
-##                            time.sleep(2.5)
-####                            keep_flying = False
-##                            STATE = RETURN
-##                            goal_pos = (x,y)
-##                            x = x - 3
+
                     if STATE == RETURN:
                         diff_x = x0 - x
                         diff_y = y0 - y
@@ -637,16 +460,22 @@ if __name__ == '__main__':
                         vy = np.sign(diff_y)*VELOCITY
                         if abs(diff_x) < 0.1 and abs(diff_y) < 0.1:
                             keep_flying = False
+
+                    # execute the motion, and save the odometry
                     motion_commander.start_linear_motion(vx, vy, 0)
                     prev_vx = vx
                     prev_vy = vy
                     x += vx * 0.1
                     y += vy * 0.1
+
+                    # stop the program if hand is placed above drone
                     if is_close(multiranger.up):
                         print("landing")
                         keep_flying = False
+                    
                     time.sleep(0.1)
-                    #print("{}  {} {}".format(round(x,2),round(y,2), multiranger.down))
+##                    print("{}  {} {}".format(round(x,2),round(y,2), multiranger.down))
+                    # update the grid with obstacles and visited position
                     grid = update_grid(grid, x, y)
                     grid[floor(x*10)][floor(y*10)] = 2
 
