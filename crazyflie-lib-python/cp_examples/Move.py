@@ -206,7 +206,7 @@ def goal(x, y):
     global line0
     global line3
     global STATE
-    if multiranger.down > 0.17:
+    if multiranger.down > height_thresh_rise:
         if y <= 1.5 and not line0:
             vy = -VELOCITY
         elif y > 1.5 and not line3:
@@ -277,29 +277,32 @@ def landing(x, y, prev_vx, prev_vy):
     if L_STATE == L_LEFT:
         vy = VELOCITY
         if not x_found:
-            if multiranger.down>height_thresh and abs(y-y_r) > 0.2:
+            if multiranger.down>height_thresh_fall and abs(y-y_r) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1.5)
+                time.sleep(1)
                 y_l = y
                 L_STATE = L_MIDDLE_Y
         else:
-            if multiranger.down>height_thresh and abs(y-y_r) > 0.2:
+            if multiranger.down>height_thresh_fall and abs(y-y_r) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1.5)
+                time.sleep(1)
                 y_l = y
                 L_STATE = L_MIDDLE_Y
     if L_STATE == L_RIGHT:
         vy = -VELOCITY
         if not x_found:
-            if multiranger.down>height_thresh and abs(y-y_l) > 0.2:
+            if multiranger.down>height_thresh_fall and abs(y-y_l) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1.5)
+                time.sleep(1)
                 y_r = y
                 L_STATE = L_MIDDLE_Y
         else:
-            if multiranger.down>height_thresh:
+            if multiranger.down < height_thresh_rise:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1.5)
+                time.sleep(1)
+            if multiranger.down>height_thresh_fall:
+                motion_commander.start_linear_motion(0, 0, 0)
+                time.sleep(1)
                 y_r = y
                 L_STATE = L_LEFT
     if L_STATE == L_MIDDLE_Y:
@@ -315,29 +318,32 @@ def landing(x, y, prev_vx, prev_vy):
     if L_STATE == L_BACK:
         vx = -VELOCITY
         if not y_found:
-            if multiranger.down>height_thresh and abs(x-x_f) > 0.2:
+            if multiranger.down>height_thresh_fall and abs(x-x_f) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1.5)
+                time.sleep(1)
                 x_b = x
                 L_STATE = L_MIDDLE_X
         else:
-            if multiranger.down>height_thresh:
+            if multiranger.down>height_thresh_fall:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1.5)
+                time.sleep(1)
                 x_b = x
                 L_STATE = L_FRONT
     if L_STATE == L_FRONT:
         vx = VELOCITY
         if not y_found:
-            if multiranger.down>height_thresh and abs(x-x_b) > 0.2:
+            if multiranger.down>height_thresh_fall and abs(x-x_b) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1.5)
+                time.sleep(1)
                 x_f = x
                 L_STATE = L_MIDDLE_X
         else:
-            if multiranger.down>height_thresh and abs(x-x_b) > 0.2:
+            if multiranger.down < height_thresh_rise:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1.5)
+                time.sleep(1)
+            if multiranger.down>height_thresh_fall and abs(x-x_b) > 0.2:
+                motion_commander.start_linear_motion(0, 0, 0)
+                time.sleep(1)
                 x_f = x
                 L_STATE = L_MIDDLE_X
     if L_STATE == L_MIDDLE_X:
@@ -411,7 +417,8 @@ y_found = False
 
 # height threshold for the detection of a 'fall', when passing from the landing pad
 # to the ground (set once the height of the flight is defined)
-height_thresh = 0
+height_thresh_fall = 0
+height_thresh_rise = 0
 
 # Set of points not explored in the landing zone due to obstacles
 x_obst = []
@@ -450,7 +457,8 @@ if __name__ == '__main__':
                 time.sleep(1)
                 y_not_expl = []
                 height = "down"
-                height_thresh = motion_commander.default_height + 0.03
+                height_thresh_fall = motion_commander.default_height + 0.03
+                height_thresh_rise = motion_commander.default_height - 0.03
 
                 # Main loop of the controller
                 while keep_flying:
