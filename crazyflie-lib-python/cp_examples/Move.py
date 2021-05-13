@@ -128,8 +128,9 @@ def get_off_U(x,y,VELOCITY = 0.2):
 # Advance State : drone reaches landing region while avoiding obstacles
 # Obstacle avoidance is set to prioritize displacement towards the y-center
 # of the map.
-def advance(x, y, vx, vy):
+def advance(x, y):
     global STATE
+    global VELOCITY
     global checkedright
     global checkedleft
     global direction
@@ -174,8 +175,9 @@ def advance(x, y, vx, vy):
 
 # Obstacle avoidance when an encounter with an obstacle happens near the
 # border of the map
-def corner(x, y, vx, vy):
+def corner(x, y):
     global STATE
+    global VELOCITY
     if y < 1.5:
         if (is_close(multiranger.left)):
             vx = -VELOCITY
@@ -198,7 +200,7 @@ def corner(x, y, vx, vy):
 
 # Search for the landing pad in when in the landing region
 # Landing pad is detected when the z-range finder records a decrease
-def goal(x, y, vx, vy):
+def goal(x, y):
     global VELOCITY
     global keep_flying
     global line0
@@ -219,10 +221,10 @@ def goal(x, y, vx, vy):
             print("fin de ligne")
             if x > 4.85:
                 print("goal not found")
-                keep_flying = false
+                keep_flying = False
             elif is_close(multiranger.front):
                 if y > 1.5:
-                    vy = -VELOCTIY
+                    vy = -VELOCITY
                 else:
                     vy = VELOCITY
             else:
@@ -248,6 +250,7 @@ def landing(x, y, prev_vx, prev_vy):
     global first
     global L_STATE
     global STATE
+    global VELOCITY
     global y_l
     global y_r
     global x_b
@@ -461,14 +464,14 @@ if __name__ == '__main__':
                             STATE = GOAL
                             x=3.5
                         # ----------------------
-                        x, y, vx, vy = advance(x, y, vx, vy)
+                        x, y, vx, vy = advance(x, y)
 
                     elif STATE == CORNER:
-                        x, y, vx, vy = corner(x, y, vx, vy)
+                        x, y, vx, vy = corner(x, y)
 
                     elif STATE == GOAL:
                         print("State: " + str(STATE) + " x: " + str(round(x,2)) + " y: "+ str(round(y,2)) + " line0: "+ str(line0) +" line3: " + str(line3))
-                        x, y, vx, vy = goal(x, y, vx, vy)
+                        x, y, vx, vy = goal(x, y)
 
                     if STATE == LANDING:
                         print("L_State: " + str(L_STATE) + " x: " + str(round(x,2)) + " y: "+ str(round(y,2)) + " height: "+ str(multiranger.down))
