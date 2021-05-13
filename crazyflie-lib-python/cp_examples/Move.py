@@ -528,15 +528,11 @@ if __name__ == '__main__':
                 line3 = False
                 y_not_expl = []
                 height = "down"
-<<<<<<< Updated upstream
                 height_thresh = motion_commander.default_height + 0.03
-
                 # Main loop of the controller
-=======
                 height_thresh_fall = motion_commander.default_height + 0.03
                 height_thresh_rise = motion_commander.default_height - 0.03
-                
->>>>>>> Stashed changes
+
                 while keep_flying:
                     
                     vx = 0
