@@ -42,105 +42,8 @@ def create_empty_plot(size_x,size_y):
     ax.grid(True)
     return fig, ax
 
-<<<<<<< Updated upstream
 def is_close(range):
     MIN_DISTANCE = 0.2  # m
-=======
-cmap = colors.ListedColormap(['white', 'black', 'red','blue','green', 'yellow'])
-
-img_size = (50, 30)
-grid = np.zeros((img_size[0],img_size[1]))
-
-fig, ax = create_empty_plot(img_size[1], img_size[0])
-#ax.scatter(0.5,1, marker="o", color = 'orange')
-ax.imshow(grid, cmap = cmap)
-
-
-
-# -*- coding: utf-8 -*-
-#
-#     ||          ____  _ __
-#  +------+      / __ )(_) /_______________ _____  ___
-#  | 0xBC |     / __  / / __/ ___/ ___/ __ `/_  / / _ \
-#  +------+    / /_/ / / /_/ /__/ /  / /_/ / / /_/  __/
-#   ||  ||    /_____/_/\__/\___/_/   \__,_/ /___/\___/
-#
-#  Copyright (C) 2018 Bitcraze AB
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-#  MA  02110-1301, USA.
-"""
-This script shows the basic use of the PositionHlCommander class.
-Simple example that connects to the crazyflie at `URI` and runs a
-sequence. This script requires some kind of location system.
-The PositionHlCommander uses position setpoints.
-Change the URI variable to your Crazyflie configuration.
-"""
-import cflib.crtp
-import time
-import sys
-from cflib.crazyflie import Crazyflie
-from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
-from cflib.positioning.position_hl_commander import PositionHlCommander
-from cflib.utils.multiranger import Multiranger
-from cflib.positioning.motion_commander import MotionCommander
-
-# URI to the Crazyflie to connect to
-uri = 'radio://0/10/2M/E7E7E7E7E7'
-# initial position
-x0 = 0
-y0 = 0
-# State of the drone
-ADVANCE = 1
-GOAL = 2
-CORNER = 3
-LANDING = 4
-RETURN = 5
-
-# State when locating the landing pad
-L_RIGHT = 1
-L_BACK = 2
-L_LEFT = 3
-L_FRONT = 4
-L_MIDDLE_Y = 5
-L_MIDDLE_X = 6
-
-# Used to select a direction when encountering an obstacle
-direction = 0
-checkedright=False
-checkedleft=False
-# True until the end of the first passsage in landing state, used to know
-# in which direction (x,-x,y,-y) the drone found the landing pad
-first = True
-# True if the x (y) position of the landing pad center is found
-x_found = False
-y_found = False
-# height threshold for the detection of a 'fall' or 'rise', when passing from the landing
-# pad to the ground (set once the height of the flight is defined)
-height_thresh_fall = 0
-height_thresh_rise = 0
-# Set of points not explored in the landing zone due to obstacles
-x_obst = []
-ÿ_obst = []
-# x and y positions of the edge of the landing pad
-y_l = 0 # y left
-y_r = 0 # y right
-x_b = 0 # x back
-x_f = 0 # x front
-# position of the landing pad center
-goal_pos = (-1,-1)
->>>>>>> Stashed changes
 
     if range is None:
         return False
@@ -291,7 +194,7 @@ def corner(x, y, vx, vy):
 # Search for the landing pad in when in the landing region
 # Landing pad is detected when the z-range finder records a decrease
 def goal(x, y, vx, vy):
-    if multiranger.down > height_thresh_rise:
+    if multiranger.down > 0.17:
         if y <= 1.5 and not line0:
             vy = -VELOCITY
         elif y > 1.5 and not line3:
@@ -349,32 +252,29 @@ def landing(x, y, vx, vy, prev_vx, prev_vy):
     if L_STATE == L_LEFT:
         vy = VELOCITY
         if not x_found:
-            if multiranger.down > height_thresh_fall and abs(y-y_r) > 0.2:
+            if multiranger.down>height_thresh and abs(y-y_r) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
+                time.sleep(1.5)
                 y_l = y
                 L_STATE = L_MIDDLE_Y
         else:
-            if multiranger.down > height_thresh_fall and abs(y-y_r) > 0.2:
+            if multiranger.down>height_thresh and abs(y-y_r) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
+                time.sleep(1.5)
                 y_l = y
                 L_STATE = L_MIDDLE_Y
     if L_STATE == L_RIGHT:
         vy = -VELOCITY
         if not x_found:
-            if multiranger.down > height_thresh_fall and abs(y-y_l) > 0.2:
+            if multiranger.down>height_thresh and abs(y-y_l) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
+                time.sleep(1.5)
                 y_r = y
                 L_STATE = L_MIDDLE_Y
         else:
-            if multiranger.down < height_trhesh_rise:
+            if multiranger.down>height_thresh:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-            if multiranger.down>height_thresh_fall:
-                motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
+                time.sleep(1.5)
                 y_r = y
                 L_STATE = L_LEFT
     if L_STATE == L_MIDDLE_Y:
@@ -390,32 +290,29 @@ def landing(x, y, vx, vy, prev_vx, prev_vy):
     if L_STATE == L_BACK:
         vx = -VELOCITY
         if not y_found:
-            if multiranger.down>height_thresh_fall and abs(x-x_f) > 0.2:
+            if multiranger.down>height_thresh and abs(x-x_f) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
+                time.sleep(1.5)
                 x_b = x
                 L_STATE = L_MIDDLE_X
         else:
-            if multiranger.down > height_thresh_fall:
+            if multiranger.down>height_thresh:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
+                time.sleep(1.5)
                 x_b = x
                 L_STATE = L_FRONT
     if L_STATE == L_FRONT:
         vx = VELOCITY
         if not y_found:
-            if multiranger.down > height_thresh_fall and abs(x-x_b) > 0.2:
+            if multiranger.down>height_thresh and abs(x-x_b) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
+                time.sleep(1.5)
                 x_f = x
                 L_STATE = L_MIDDLE_X
         else:
-            if multiranger.down < height_trhesh_rise:
+            if multiranger.down>height_thresh and abs(x-x_b) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-            if multiranger.down > height_thresh_fall and abs(x-x_b) > 0.2:
-                motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
+                time.sleep(1.5)
                 x_f = x
                 L_STATE = L_MIDDLE_X
     if L_STATE == L_MIDDLE_X:
@@ -528,15 +425,9 @@ if __name__ == '__main__':
                 line3 = False
                 y_not_expl = []
                 height = "down"
-<<<<<<< Updated upstream
                 height_thresh = motion_commander.default_height + 0.03
 
                 # Main loop of the controller
-=======
-                height_thresh_fall = motion_commander.default_height + 0.03
-                height_thresh_rise = motion_commander.default_height - 0.03
-                
->>>>>>> Stashed changes
                 while keep_flying:
                     
                     vx = 0
