@@ -42,7 +42,7 @@ grid[23][15]=2
 grid[24][15]=2
 fig, ax = create_empty_plot(img_size[1], img_size[0])
 # ax.scatter(0.5,1, marker="o", color = 'orange')
-ax.imshow(grid, cmap=cmap)
+# ax.imshow(grid, cmap=cmap)
 
 import time
 import sys
@@ -58,9 +58,27 @@ def color_zone(grid):
                 grid[x][y] = 4
     return grid
 
+def grow_obstacles(grid):
+    sx, sy = grid.shape
+    sx = range(sx)
+    sy = range(sy)
+    for x in sx:
+        for y in sy:
+            for i in [-1, 0, 1]:
+                for j in [-1, 0, 1]:
+                    if x+i in sx and y+j in sy:
+                        if grid[x+i][y+j] == 2:
+                            if grid[x][y] != 2:
+                                grid[x][y] = -1;
+    grid[grid==-1] = 2
+    return grid
 
 def dijkstra(grid, objx, objy, x, y):
+
+
     grid_value = np.full((grid.shape[0], grid.shape[1]), 1000)
+    #grid_value = grow_obstacles(grid)
+
     print(grid.shape[0])
     grid_value[x][y] = 0
     value = 0
@@ -119,6 +137,7 @@ def dijkstra(grid, objx, objy, x, y):
     return path_list
 
 time1 = time.time()
+grid = grow_obstacles(grid)
 path_list = dijkstra(grid, 5, 5, 40, 20)
 time2 = time.time()
 print("Time in ms: " + str(1000*(time2-time1)))

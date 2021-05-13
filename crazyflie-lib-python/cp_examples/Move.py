@@ -51,6 +51,7 @@ def is_close(range):
         return range < MIN_DISTANCE
 
 def update_grid(grid, x, y):
+    update_bool = False
     multx = img_size[0]/5
     multy = img_size[1]/3
     dists =[0.1,0.2]
@@ -58,19 +59,23 @@ def update_grid(grid, x, y):
         for i in dists:    
             if(grid[floor((x+i)*multx)][floor((y)*multy)]!=2):
                 grid[floor((x+i)*multx)][floor((y)*multy)]=1
+                update_bool = True
     if (is_close(multiranger.back)):
         for i in dists:
             if(grid[floor((x-i)*multx)][floor((y)*multy)]!=2):
                 grid[floor((x-i)*multx)][floor((y)*multy)]=1
+                update_bool = True
     if (is_close(multiranger.left)):
         for i in dists:
             if(grid[floor((x)*multx)][floor((y+i)*multy)]!=2):
                 grid[floor((x)*multx)][floor((y+i)*multy)]=1
+                update_bool = True
     if (is_close(multiranger.right)):
         for i in dists:
             if(grid[floor((x)*multx)][floor((y-i)*multy)]!=2):
                 grid[floor((x)*multx)][floor((y-i)*multy)]=1
-    return grid
+                update_bool = True
+    return grid,update_bool
 
 def color_zone(grid):
     for y in range(30):
@@ -88,13 +93,74 @@ def grow_obstacles(grid):
     sy = range(sy)
     for x in sx:
         for y in sy:
-            for i in [-1, 1]:
-                for j in [-1, 1]:
+            for i in [-1, 0, 1]:
+                for j in [-1, 0, 1]:
                     if x+i in sx and y+j in sy:
                         if grid[x+i][y+j] == 1:
-                            grid[x][y] = -1;
+                            if grid[x][y] != 1:
+                                grid[x][y] = -1;
     grid[grid==-1] = 1
     return grid
+
+def dijkstra(grid, objx, objy, x, y):
+    grid_value = np.full((grid.shape[0], grid.shape[1]), 1000)
+
+    print(grid.shape[0])
+    grid_value[x][y] = 0
+    value = 0
+    while (grid_value[objx][objy] >= 1000):
+        for i in range(grid.shape[0]):
+            if(i<=x+value+1 and i>=x-value-1):
+                for j in range(grid.shape[1]):
+                    if(j<=y+value+1 and j>=y-value-1):
+                        if (grid_value[i][j] == value):
+                            if (i - 1 >= 0):
+                                if (grid[i - 1][j] != 1 and grid_value[i - 1][j] > value + 1):
+                                    grid_value[i - 1][j] = value + 1
+                            if (i + 1 < grid.shape[0]):
+                                if (grid[i + 1][j] != 1 and grid_value[i + 1][j] > value + 1):
+                                    grid_value[i + 1][j] = value + 1
+                            if (j - 1 >= 0):
+                                if (grid[i][j - 1] != 1 and grid_value[i][j - 1] > value + 1):
+                                    grid_value[i][j - 1] = value + 1
+                            if (j + 1 < grid.shape[1]):
+                                if (grid[i][j + 1] != 1 and grid_value[i][j + 1] > value + 1):
+                                    grid_value[i][j + 1] = value + 1
+
+        value += 1
+    x_tmp = objx
+    y_tmp = objy
+    value = grid_value[objx][objy]
+    path_list = []
+    path_list.append([x_tmp, y_tmp])
+
+    while (value>0):
+        if (x_tmp - 1 >= 0):
+            if (grid_value[x_tmp - 1][y_tmp] == value -1):
+                x_tmp = x_tmp - 1
+                path_list.append([x_tmp,y_tmp])
+                value -=1
+                continue
+        if (x_tmp + 1 < grid.shape[0]):
+            if (grid_value[x_tmp + 1][y_tmp] == value -1):
+                x_tmp = x_tmp + 1
+                path_list.append([x_tmp ,y_tmp])
+                value -= 1
+                continue
+        if (y_tmp - 1 >= 0):
+            if (grid_value[x_tmp][y_tmp - 1] == value -1):
+                y_tmp = y_tmp - 1
+                path_list.append([x_tmp,y_tmp])
+                value -= 1
+                continue
+        if (y_tmp + 1 < grid.shape[1]):
+            if (grid_value[x_tmp][y_tmp + 1] == value -1):
+                y_tmp = y_tmp + 1
+                path_list.append([x_tmp,y_tmp])
+                value -= 1
+                continue
+
+    return path_list
 
 
 ###############################################################################
@@ -267,6 +333,8 @@ def landing(x, y, prev_vx, prev_vy):
     global y_found
     global keep_flying
     global goal_pos
+    global path_return
+    global grid
 
     if prev_vy != 0 and first:
         if prev_vy > 0:
@@ -297,6 +365,7 @@ def landing(x, y, prev_vx, prev_vy):
                 y_l = y
                 L_STATE = L_MIDDLE_Y
     if L_STATE == L_RIGHT:
+        global path_return
         vy = -VELOCITY
         if not x_found:
             if multiranger.down>height_thresh_fall and abs(y-y_l) > 0.2:
@@ -374,7 +443,11 @@ def landing(x, y, prev_vx, prev_vy):
         motion_commander.take_off()
 ##      keep_flying = False
         STATE = RETURN
+        grid = grow_obstacles(grid)
+        path_return = dijkstra(grid,x0,y0,x,y)
         goal_pos = (x,y)
+        VELOCITY = 0.2
+
     return (x, y, vx, vy)
 
 ###############################################################################
@@ -441,6 +514,8 @@ x_b = 0 # x back
 x_f = 0 # x front
 # position of the landing pad center
 goal_pos = (-1,-1)
+updated_bool=False
+path_return=[]
 
 ###############################################################################
 ##################### Beginning of the program ################################
@@ -497,6 +572,17 @@ if __name__ == '__main__':
 
                     if STATE == RETURN:
                         x -= 3
+                        if updated_bool:
+                            path_return = dijkstra(grid, x0, y0, x, y)
+                        if len(path_return)==0:
+                            keep_flying=False
+                            continue
+                        if (abs(x-path_return[-1][0]))<0.05 and (abs(y-path_return[-1][1]))<0.05 :
+                            path_return.pop()
+                        vx=(path_return[-1][0]-x)
+                        vy=(path_return[-1][1]-y)
+
+                        """
                         diff_x = x0 - x
                         diff_y = y0 - y
                         print("x: " + str(round(x,2)) + " y: " + str(round(y,2)))
@@ -504,6 +590,7 @@ if __name__ == '__main__':
                         vy = np.sign(diff_y)*VELOCITY
                         if abs(diff_x) < 0.1 and abs(diff_y) < 0.1:
                             keep_flying = False
+                        """
 
                     # execute the motion, and save the odometry
                     motion_commander.start_linear_motion(vx, vy, 0)
@@ -516,11 +603,10 @@ if __name__ == '__main__':
                     if is_close(multiranger.up):
                         print("landing")
                         keep_flying = False
-                    
                     time.sleep(0.1)
 ##                    print("{}  {} {}".format(round(x,2),round(y,2), multiranger.down))
                     # update the grid with obstacles and visited position
-                    grid = update_grid(grid, x, y)
+                    grid,updated_bool = update_grid(grid, x, y)
                     grid[floor(x*10)][floor(y*10)] = 2
 
 
