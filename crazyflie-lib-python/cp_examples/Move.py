@@ -129,6 +129,8 @@ def get_off_U(x,y,VELOCITY = 0.2):
 # Obstacle avoidance is set to prioritize displacement towards the y-center
 # of the map.
 def advance(x, y):
+    vx = 0
+    vy = 0
     global STATE
     global VELOCITY
     global checkedright
@@ -176,6 +178,8 @@ def advance(x, y):
 # Obstacle avoidance when an encounter with an obstacle happens near the
 # border of the map
 def corner(x, y):
+    vx = 0
+    vy = 0
     global STATE
     global VELOCITY
     if y < 1.5:
@@ -201,6 +205,8 @@ def corner(x, y):
 # Search for the landing pad in when in the landing region
 # Landing pad is detected when the z-range finder records a decrease
 def goal(x, y):
+    vx = 0
+    vy = 0
     global VELOCITY
     global keep_flying
     global line0
@@ -247,6 +253,8 @@ def goal(x, y):
 
 # Detect the edge of the landing pad in order to land in its center
 def landing(x, y, prev_vx, prev_vy):
+    vx = 0
+    vy = 0
     global first
     global L_STATE
     global STATE
@@ -361,7 +369,9 @@ def landing(x, y, prev_vx, prev_vy):
     if x_found and y_found:
         print("found goal, landing")
         motion_commander.start_linear_motion(0, 0, 0)
+        motion_commander.land()
         time.sleep(2.5)
+        motion_commander.take_off()
 ##      keep_flying = False
         STATE = RETURN
         goal_pos = (x,y)
@@ -449,7 +459,7 @@ if __name__ == '__main__':
     with SyncCrazyflie(uri, cf=cf) as scf:
         with MotionCommander(
                 scf,
-                default_height = 0.2) as motion_commander:
+                default_height = 0.3) as motion_commander:
             with Multiranger(scf) as multiranger:
                 keep_flying = True
                 x = x0
@@ -486,6 +496,7 @@ if __name__ == '__main__':
                         x, y, vx, vy = landing(x, y, prev_vx, prev_vy)
 
                     if STATE == RETURN:
+                        x -= 3
                         diff_x = x0 - x
                         diff_y = y0 - y
                         print("x: " + str(round(x,2)) + " y: " + str(round(y,2)))
