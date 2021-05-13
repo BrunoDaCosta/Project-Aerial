@@ -129,6 +129,10 @@ def get_off_U(x,y,VELOCITY = 0.2):
 # Obstacle avoidance is set to prioritize displacement towards the y-center
 # of the map.
 def advance(x, y, vx, vy):
+    global STATE
+    global checkedright
+    global checkedleft
+    global direction
     if (is_close(multiranger.front)):
         if is_close(multiranger.right) and is_close(multiranger.left):
             print("U")
@@ -171,6 +175,7 @@ def advance(x, y, vx, vy):
 # Obstacle avoidance when an encounter with an obstacle happens near the
 # border of the map
 def corner(x, y, vx, vy):
+    global STATE
     if y < 1.5:
         if (is_close(multiranger.left)):
             vx = -VELOCITY
@@ -194,6 +199,11 @@ def corner(x, y, vx, vy):
 # Search for the landing pad in when in the landing region
 # Landing pad is detected when the z-range finder records a decrease
 def goal(x, y, vx, vy):
+    global VELOCITY
+    global keep_flying
+    global line0
+    global line3
+    global STATE
     if multiranger.down > 0.17:
         if y <= 1.5 and not line0:
             vy = -VELOCITY
@@ -234,7 +244,19 @@ def goal(x, y, vx, vy):
     return x, y, vx, vy
 
 # Detect the edge of the landing pad in order to land in its center
-def landing(x, y, vx, vy, prev_vx, prev_vy):
+def landing(x, y, prev_vx, prev_vy):
+    global first
+    global L_STATE
+    global STATE
+    global y_l
+    global y_r
+    global x_b
+    global x_f
+    global x_found
+    global y_found
+    global keep_flying
+    global goal_pos
+
     if prev_vy != 0 and first:
         if prev_vy > 0:
             y_r = y
@@ -334,7 +356,7 @@ def landing(x, y, vx, vy, prev_vx, prev_vy):
 ##      keep_flying = False
         STATE = RETURN
         goal_pos = (x,y)
-
+    return (x, y, vx, vy)
 
 ###############################################################################
 ############################ Variables ########################################
@@ -371,6 +393,11 @@ L_MIDDLE_X = 6
 direction = 0
 checkedright=False
 checkedleft=False
+VELOCITY = 0.2
+STATE = ADVANCE
+L_STATE = L_RIGHT
+line0 = False
+line3 = False
 
 # True until the end of the first passsage in landing state, used to know
 # in which direction (x,-x,y,-y) the drone found the landing pad
@@ -414,15 +441,10 @@ if __name__ == '__main__':
                 scf,
                 default_height = 0.2) as motion_commander:
             with Multiranger(scf) as multiranger:
-                VELOCITY = 0.2
                 keep_flying = True
                 x = x0
                 y = y0
-                STATE = ADVANCE
-                L_STATE = L_RIGHT
                 time.sleep(1)
-                line0 = False
-                line3 = False
                 y_not_expl = []
                 height = "down"
                 height_thresh = motion_commander.default_height + 0.03
@@ -450,7 +472,7 @@ if __name__ == '__main__':
 
                     if STATE == LANDING:
                         print("L_State: " + str(L_STATE) + " x: " + str(round(x,2)) + " y: "+ str(round(y,2)) + " height: "+ str(multiranger.down))
-                        x, y, vx, vy = landing(x, y, vx, vy, prev_vx, prev_vy)
+                        x, y, vx, vy = landing(x, y, prev_vx, prev_vy)
 
                     if STATE == RETURN:
                         diff_x = x0 - x
