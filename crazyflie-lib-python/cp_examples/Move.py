@@ -311,9 +311,13 @@ def goal(x, y):
         elif line3 and not is_close(multiranger.right):
             vy = -VELOCITY
         for i in range(3):
-            for j in range(3):
-                if grid[floor(10*x) + i-1][floor(10*y) + j-1] == 0:
-                    grid[floor(10*x) + i-1][floor(10*y) + j-1] = 6
+            ind_x = floor(10*x) + i-1
+            if ind_x >= 0 and ind_x < grid.shape[0]:
+                for j in range(3):
+                    ind_y = floor(10*y) + j-1
+                    if ind_y >= 0 and ind_y < grid.shape[1]:
+                        if grid[ind_x][ind_y] == 0:
+                            grid[ind_x][ind_y] = 6
     else:
         motion_commander.start_linear_motion(0, 0, 0)
         time.sleep(1)
