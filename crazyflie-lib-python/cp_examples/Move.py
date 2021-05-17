@@ -162,7 +162,6 @@ def dijkstra(grid, objx, objy, x, y):
 
     return path_list
 
-
 ###############################################################################
 ####################### Functions for each state ##############################
 ###############################################################################
@@ -278,14 +277,16 @@ def goal(x, y):
     global line0
     global line3
     global STATE
+    global x_last
+
     if multiranger.down > height_thresh_rise:
         if y <= 1.5 and not line0:
             vy = -VELOCITY
+            x_last = x
         elif y > 1.5 and not line3:
             vy = VELOCITY
-        if y < 0.15:
-            line0 = True
-        if is_close(multiranger.right):
+            x_last = x
+        if y < 0.15 or is_close(multiranger.right):
             line0 = True
         if y > 2.85 or is_close(multiranger.left):
             line3 = True
@@ -300,16 +301,19 @@ def goal(x, y):
                 else:
                     vy = VELOCITY
             else:
-                motion_commander.start_linear_motion(VELOCITY, 0, 0)
-                time.sleep(1)
-                grid[floor(x*10)+1][floor(y*10)] = 2
-                x += VELOCITY * 1
-                line0 = False
-                line3 = False
+                if x - x_last < 0.2:
+                    vx = VELOCITY
+                else:
+                    line0 = False
+                    line3 = False
         elif line0 and not is_close(multiranger.left):
             vy = VELOCITY
         elif line3 and not is_close(multiranger.right):
             vy = -VELOCITY
+        for i in range(3):
+            for j in range(3):
+                if grid[floor(10*x) + i-1][floor(10*y) + j-1] == 0:
+                    grid[floor(10*x) + i-1][floor(10*y) + j-1] = 6
     else:
         motion_commander.start_linear_motion(0, 0, 0)
         time.sleep(1)
@@ -457,7 +461,8 @@ def landing(x, y, prev_vx, prev_vy):
 # URI to the Crazyflie to connect to
 uri = 'radio://0/10/2M/E7E7E7E7E7'
 
-cmap = colors.ListedColormap(['white', 'black', 'red','blue','green', 'yellow'])
+# middle, obstacle, path, starting zone, landing zone, landing pad, visited
+cmap = colors.ListedColormap(['white', 'black', 'red','blue','green', 'yellow', 'orange'])
 
 img_size = (50, 30)
 grid = np.zeros((img_size[0],img_size[1]))
@@ -490,6 +495,7 @@ STATE = ADVANCE
 L_STATE = L_RIGHT
 line0 = False
 line3 = False
+x_last = 0
 
 # True until the end of the first passsage in landing state, used to know
 # in which direction (x,-x,y,-y) the drone found the landing pad
@@ -540,7 +546,6 @@ if __name__ == '__main__':
                 x = x0
                 y = y0
                 time.sleep(1)
-                y_not_expl = []
                 height = "down"
                 height_thresh_fall = motion_commander.default_height + 0.03
                 height_thresh_rise = motion_commander.default_height - 0.03
@@ -610,7 +615,7 @@ if __name__ == '__main__':
                     grid[floor(x*10)][floor(y*10)] = 2
 
 
-grid[floor(10*goal_pos[0])][floor(10*goal_pos[1])] = 6
+grid[floor(10*goal_pos[0])][floor(10*goal_pos[1])] = 5
 grid = color_zone(grid)
 ax.imshow(np.transpose(grid), cmap=cmap)
 plt.show()
