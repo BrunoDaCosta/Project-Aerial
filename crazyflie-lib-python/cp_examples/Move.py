@@ -104,15 +104,16 @@ def grow_obstacles(grid):
 
 def dijkstra(grid, objx, objy, x, y):
     grid_value = np.full((grid.shape[0], grid.shape[1]), 1000)
-
+    objx = floor(10*objx)
+    objy = floor(10*objy)
     print(grid.shape[0])
-    grid_value[x][y] = 0
+    grid_value[floor(10*x)][floor(10*y)] = 0
     value = 0
     while (grid_value[objx][objy] >= 1000):
         for i in range(grid.shape[0]):
-            if(i<=x+value+1 and i>=x-value-1):
+            if(i<=floor(10*x)+value+1 and i>=floor(10*x)-value-1):
                 for j in range(grid.shape[1]):
-                    if(j<=y+value+1 and j>=y-value-1):
+                    if(j<=floor(10*y)+value+1 and j>=floor(10*y)-value-1):
                         if (grid_value[i][j] == value):
                             if (i - 1 >= 0):
                                 if (grid[i - 1][j] != 1 and grid_value[i - 1][j] > value + 1):
@@ -376,7 +377,7 @@ def landing(x, y, prev_vx, prev_vy):
         global path_return
         vy = -VELOCITY
         if not x_found:
-            if multiranger.down>height_thresh_fall and abs(y-y_l) > 0.2:
+            if multiranger.down>height_thresh_fall and abs(y-y_l) > 0.1:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 y_r = y
@@ -403,7 +404,7 @@ def landing(x, y, prev_vx, prev_vy):
     if L_STATE == L_BACK:
         vx = -VELOCITY
         if not y_found:
-            if multiranger.down>height_thresh_fall and abs(x-x_f) > 0.2:
+            if multiranger.down>height_thresh_fall and abs(x-x_f) > 0.1:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 x_b = x
@@ -417,7 +418,7 @@ def landing(x, y, prev_vx, prev_vy):
     if L_STATE == L_FRONT:
         vx = VELOCITY
         if not y_found:
-            if multiranger.down>height_thresh_fall and abs(x-x_b) > 0.2:
+            if multiranger.down>height_thresh_fall and abs(x-x_b) > 0.1:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 x_f = x
@@ -426,7 +427,7 @@ def landing(x, y, prev_vx, prev_vy):
             if multiranger.down < height_thresh_rise:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
-            if multiranger.down>height_thresh_fall and abs(x-x_b) > 0.2:
+            if multiranger.down>height_thresh_fall and abs(x-x_b) > 0.1:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 x_f = x
@@ -455,6 +456,7 @@ def landing(x, y, prev_vx, prev_vy):
         path_return = dijkstra(grid,x0,y0,x,y)
         goal_pos = (x,y)
         VELOCITY = 0.2
+        x -= 3
 
     return (x, y, vx, vy)
 
@@ -551,8 +553,8 @@ if __name__ == '__main__':
                 y = y0
                 time.sleep(1)
                 height = "down"
-                height_thresh_fall = motion_commander.default_height + 0.03
-                height_thresh_rise = motion_commander.default_height - 0.03
+                height_thresh_fall = motion_commander.default_height + 0.02
+                height_thresh_rise = motion_commander.default_height - 0.02
 
                 # Main loop of the controller
                 while keep_flying:
@@ -580,16 +582,19 @@ if __name__ == '__main__':
                         x, y, vx, vy = landing(x, y, prev_vx, prev_vy)
 
                     if STATE == RETURN:
-                        x -= 3
                         if updated_bool:
                             path_return = dijkstra(grid, x0, y0, x, y)
                         if len(path_return)==0:
                             keep_flying=False
                             continue
-                        if (abs(x-path_return[-1][0]))<0.05 and (abs(y-path_return[-1][1]))<0.05 :
+                        dist_x = path_return[-1][0]-x
+                        dist_y = path_return[-1][1]-y
+                        if abs(dist_x)<0.05 and abs(dist_y)<0.05 :
                             path_return.pop()
-                        vx=(path_return[-1][0]-x)
-                        vy=(path_return[-1][1]-y)
+                        if abs(dist_x)>0.05:
+                            vx = np.sign(dist_x)
+                        if abs(dist_y)>0.05:
+                            vy = np.sign(dist_y)
 
                         """
                         diff_x = x0 - x
