@@ -499,13 +499,13 @@ def landing(x, y, prev_vx, prev_vy):
     if L_STATE == L_LEFT:
         vy = VELOCITY
         if not x_found:
-            if multiranger.down > height_thresh_fall and abs(y - y_r) > 0.1:
+            if multiranger.down > height_thresh_fall and abs(y - y_r) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 y_l = y
                 L_STATE = L_MIDDLE_Y
         else:
-            if multiranger.down > height_thresh_fall and abs(y - y_r) > 0.1:
+            if multiranger.down > height_thresh_fall and abs(y - y_r) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 y_l = y
@@ -514,7 +514,7 @@ def landing(x, y, prev_vx, prev_vy):
         global path_return
         vy = -VELOCITY
         if not x_found:
-            if multiranger.down > height_thresh_fall and abs(y - y_l) > 0.1:
+            if multiranger.down > height_thresh_fall and abs(y - y_l) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 y_r = y
@@ -542,7 +542,7 @@ def landing(x, y, prev_vx, prev_vy):
     if L_STATE == L_BACK:
         vx = -VELOCITY
         if not y_found:
-            if multiranger.down > height_thresh_fall and abs(x - x_f) > 0.1:
+            if multiranger.down > height_thresh_fall and abs(x - x_f) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 x_b = x
@@ -556,7 +556,7 @@ def landing(x, y, prev_vx, prev_vy):
     if L_STATE == L_FRONT:
         vx = VELOCITY
         if not y_found:
-            if multiranger.down > height_thresh_fall and abs(x - x_b) > 0.1:
+            if multiranger.down > height_thresh_fall and abs(x - x_b) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 x_f = x
@@ -565,7 +565,7 @@ def landing(x, y, prev_vx, prev_vy):
             if multiranger.down < height_thresh_rise:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
-            if multiranger.down > height_thresh_fall and abs(x - x_b) > 0.1:
+            if multiranger.down > height_thresh_fall and abs(x - x_b) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 x_f = x
@@ -628,9 +628,6 @@ def returning(x, y, path_return):
         path_return.pop()
         if len(path_return) == 0:
             STATE = FINDSTART
-            x_found = False
-            y_found = False
-            first = False
             return 0, 0, path_return
         dist_x = path_return[-1][0] + 0.5 - x * 10
         dist_y = path_return[-1][1] + 0.5 - y * 10
@@ -649,12 +646,15 @@ def findstart(x,y):
     global line2
     global line3
     global keep_flying
+    global x_found
+    global y_found
+    global first
     vx = 0
     vy = 0
 
     if multiranger.down > height_thresh_rise:
         distance_y = 1
-        distance_x = 0.5
+        distance_x = 0.2
         if y0-y > distance_y or is_close(multiranger.right):
             line0 = True
         if y - y0 > distance_y or is_close(multiranger.left):
@@ -667,7 +667,7 @@ def findstart(x,y):
 
         if line3 and line0:
             if not line2:
-                if x0-x >= distance_x:
+                if x0-x > distance_x:
                     line2 = True
                     line0 = False
                     line3 = False
@@ -677,8 +677,11 @@ def findstart(x,y):
                     vx = -VELOCITY
             else:
                 if is_close(multiranger.front):
-                    print("couldn't find start, landing")
-                    keep_flying = False
+                    dir = np.sign(y-y0)
+                    if dir == 1:
+                        vy = -VELOCITY
+                    else:
+                        vy = VELOCITY
                 else:
                     if x-x0 < distance_x:
                         vx = VELOCITY
@@ -689,6 +692,9 @@ def findstart(x,y):
         motion_commander.start_linear_motion(0, 0, 0)
         time.sleep(1)
         STATE = LANDING
+        x_found = False
+        y_found = False
+        first = True
         VELOCITY = 0.1
 
     return x, y, vx, vy
@@ -796,7 +802,6 @@ if __name__ == '__main__':
 
                 # Main loop of the controller
                 while keep_flying:
-                    print(" ")
                     vx = 0
                     vy = 0
 
@@ -850,8 +855,6 @@ if __name__ == '__main__':
                     if (updated_bool):
                         print("New obstacle found")
 
-                    ax.imshow(np.transpose(grid), cmap=cmap)
-                    plt.show()
                     ### grid[floor(x * 10)][floor(y * 10)] = 2
 
 for x, y in path_all:
@@ -859,4 +862,5 @@ for x, y in path_all:
 grid[floor(10 * goal_pos[0])][floor(10 * goal_pos[1])] = 5
 grid = color_zone(grid)
 ax.imshow(np.transpose(grid), cmap=cmap)
+plt.savefig("path.png")
 plt.show()
