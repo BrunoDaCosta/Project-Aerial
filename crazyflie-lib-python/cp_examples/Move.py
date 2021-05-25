@@ -43,7 +43,7 @@ def create_empty_plot(size_x,size_y):
     return fig, ax
 
 def is_close(range):
-    MIN_DISTANCE = 0.2  # m
+    MIN_DISTANCE = 0.22  # m
 
     if range is None:
         return False
@@ -323,7 +323,7 @@ def goal(x, y):
         motion_commander.start_linear_motion(0, 0, 0)
         time.sleep(1)
         STATE = LANDING
-        VELOCITY = VELOCITY / 2
+        VELOCITY = 0.1
     return x, y, vx, vy
 
 # Detect the edge of the landing pad in order to land in its center
@@ -362,13 +362,13 @@ def landing(x, y, prev_vx, prev_vy):
     if L_STATE == L_LEFT:
         vy = VELOCITY
         if not x_found:
-            if multiranger.down>height_thresh_fall and abs(y-y_r) > 0.2:
+            if multiranger.down>height_thresh_fall and abs(y-y_r) > 0.1:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 y_l = y
                 L_STATE = L_MIDDLE_Y
         else:
-            if multiranger.down>height_thresh_fall and abs(y-y_r) > 0.2:
+            if multiranger.down>height_thresh_fall and abs(y-y_r) > 0.1:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
                 y_l = y
@@ -398,6 +398,7 @@ def landing(x, y, prev_vx, prev_vy):
         if abs(diff) < 0.02:
             vy = np.sign(diff)*VELOCITY/2
         if abs(diff) < 0.01:
+            motion_commander.start_linear_motion(0, 0, 0)
             time.sleep(1)
             L_STATE = L_BACK
             y_found = True
@@ -439,6 +440,7 @@ def landing(x, y, prev_vx, prev_vy):
         if abs(diff) < 0.02:
             vx = np.sign(diff)*VELOCITY/2
         if abs(diff) < 0.01:
+            motion_commander.start_linear_motion(0, 0, 0)
             time.sleep(1)
             L_STATE = L_RIGHT
             x_found = True
@@ -449,14 +451,14 @@ def landing(x, y, prev_vx, prev_vy):
         motion_commander.start_linear_motion(0, 0, 0)
         motion_commander.land()
         time.sleep(2.5)
-        motion_commander.take_off()
+        motion_commander.take_off(height=0.3, velocity=0.2)
 ##      keep_flying = False
         STATE = RETURN
         grid = grow_obstacles(grid)
         path_return = dijkstra(grid,x0,y0,x,y)
         goal_pos = (x,y)
         VELOCITY = 0.2
-        x -= 3
+        #x -= 3
 
     return (x, y, vx, vy)
 
@@ -564,9 +566,10 @@ if __name__ == '__main__':
                         
                     if STATE == ADVANCE:
                         # ----- TEMPORAIRE -----
-                        if x > 0.5:
+                        if x > 3.5:
                             STATE = GOAL
-                            x=3.5
+                            VELOCITY=0.2
+                            #x=3.5
                         # ----------------------
                         x, y, vx, vy = advance(x, y)
 
@@ -587,14 +590,21 @@ if __name__ == '__main__':
                         if len(path_return)==0:
                             keep_flying=False
                             continue
-                        dist_x = path_return[-1][0]-x
-                        dist_y = path_return[-1][1]-y
-                        if abs(dist_x)<0.05 and abs(dist_y)<0.05 :
+                        dist_x = path_return[-1][0]-x*10
+                        dist_y = path_return[-1][1]-y*10
+                        print("Current postion coords: X=" + str(x*10) + " Y:" + str(y*10))
+                        print("Current objective coords: X=" + str(path_return[-1][0]) + " Y:" + str(path_return[-1][1]))
+                        if abs(dist_x)<0.1 and abs(dist_y)<0.1 :
                             path_return.pop()
+                            if len(path_return) == 0:
+                                keep_flying = False
+                                continue
+                            dist_x = path_return[-1][0] - x * 10
+                            dist_y = path_return[-1][1] - y * 10
                         if abs(dist_x)>0.05:
-                            vx = np.sign(dist_x)
+                            vx = np.sign(dist_x)*VELOCITY
                         if abs(dist_y)>0.05:
-                            vy = np.sign(dist_y)
+                            vy = np.sign(dist_y)*VELOCITY
 
                         """
                         diff_x = x0 - x
