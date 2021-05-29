@@ -196,6 +196,7 @@ def dijkstra_landing(grid, x, y):
                             if (i - 1 >= 35):
                                 if (grid[i - 1][j] != 1 and grid_value[i - 1][j] > value + 1):
                                     grid_value[i - 1][j] = value + 1
+                                    print("X: " + str(i-1) +" Y: "+ str(j) +" value: " + str(value+1))
                                     if(grid[i - 1][j] != 6):
                                         dest_found = True
                                         x_tmp = i - 1
@@ -204,6 +205,7 @@ def dijkstra_landing(grid, x, y):
                             if (i + 1 < grid.shape[0]):
                                 if (grid[i + 1][j] != 1 and grid_value[i + 1][j] > value + 1):
                                     grid_value[i + 1][j] = value + 1
+                                    print("X: " + str(i+1) +" Y: "+ str(j) +" value: " + str(value+1))
                                     if (grid[i + 1][j] != 6):
                                         dest_found = True
                                         x_tmp = i + 1
@@ -212,6 +214,7 @@ def dijkstra_landing(grid, x, y):
                             if (j - 1 >= 0):
                                 if (grid[i][j - 1] != 1 and grid_value[i][j - 1] > value + 1):
                                     grid_value[i][j - 1] = value + 1
+                                    print("X: " + str(i) +" Y: "+ str(j-1) +" value: " + str(value+1))
                                     if (grid[i][j - 1] != 6):
                                         dest_found = True
                                         x_tmp = i
@@ -220,42 +223,48 @@ def dijkstra_landing(grid, x, y):
                             if (j + 1 < grid.shape[1]):
                                 if (grid[i][j + 1] != 1 and grid_value[i][j + 1] > value + 1):
                                     grid_value[i][j + 1] = value + 1
-                                    if(grid[i - 1][j] != 6):
+                                    print("X: " + str(i) +" Y: "+ str(j+1) +" value: " + str(value+1))
+                                    if(grid[i][j+1] != 6):
                                         dest_found = True
-                                        x_tmp = i - 1
-                                        y_tmp = j
+                                        x_tmp = i
+                                        y_tmp = j + 1
                                         continue
 
         value += 1
 
-    print("Found destination Dijkstra")
+    print("Found destination Dijkstra: "+ str(x_tmp)+" "+str(y_tmp))
+    print("From: " + str(floor(10 * x)) + " " + str(floor(10 * y)))
     value = grid_value[x_tmp][y_tmp]
     path_list = []
     path_list.append([x_tmp, y_tmp])
 
     while (value > 0):
-        if (x_tmp - 1 >= 0):
+        if (x_tmp - 1 >= 35):
             if (grid_value[x_tmp - 1][y_tmp] == value - 1):
                 x_tmp = x_tmp - 1
                 path_list.append([x_tmp, y_tmp])
+                print("Path append: " + str(x_tmp)+" "+str(y_tmp))
                 value -= 1
                 continue
         if (x_tmp + 1 < grid.shape[0]):
             if (grid_value[x_tmp + 1][y_tmp] == value - 1):
                 x_tmp = x_tmp + 1
                 path_list.append([x_tmp, y_tmp])
+                print("Path append: " + str(x_tmp)+" "+str(y_tmp))
                 value -= 1
                 continue
         if (y_tmp - 1 >= 0):
             if (grid_value[x_tmp][y_tmp - 1] == value - 1):
                 y_tmp = y_tmp - 1
                 path_list.append([x_tmp, y_tmp])
+                print("Path append: " + str(x_tmp)+" "+str(y_tmp))
                 value -= 1
                 continue
         if (y_tmp + 1 < grid.shape[1]):
             if (grid_value[x_tmp][y_tmp + 1] == value - 1):
                 y_tmp = y_tmp + 1
                 path_list.append([x_tmp, y_tmp])
+                print("Path append: " + str(x_tmp)+" "+str(y_tmp))
                 value -= 1
                 continue
     print("List before" + str(path_list))
@@ -381,6 +390,7 @@ def goal(x, y):
     global STATE
     global x_last
     global updated_bool
+    global time_start
 
     if multiranger.down > height_thresh_rise:
         if y <= 1.5 and not line0:
@@ -427,6 +437,7 @@ def goal(x, y):
     else:
         motion_commander.start_linear_motion(0, 0, 0)
         time.sleep(1)
+        time_start += 1
         STATE = LANDING
         VELOCITY = 0.1
         line0 = False
@@ -439,6 +450,17 @@ def goalmissed(x, y, path_return):
     global VELOCITY
     global keep_flying
     global STATE
+    global time_start
+
+    for i in range(3):
+        ind_x = floor(10 * x) + i - 1
+        if ind_x >= 0 and ind_x < grid.shape[0]:
+            for j in range(3):
+                ind_y = floor(10 * y) + j - 1
+                if ind_y >= 0 and ind_y < grid.shape[1]:
+                    if grid[ind_x][ind_y] == 0:
+                        grid[ind_x][ind_y] = 6
+
     if multiranger.down > height_thresh_rise:
         if updated_bool or len(path_return) == 0:
             path_return = dijkstra_landing(grid, x, y)
@@ -447,7 +469,6 @@ def goalmissed(x, y, path_return):
         print("Current postion coords: X=" + str(round(x * 10, 2)) + " Y:" + str(round(y * 10, 2)))
         print( "Current objective coords: X=" + str(path_return[-1][0]) + " Y:" + str(path_return[-1][1]))
         if abs(dist_x) < VELOCITY and abs(dist_y) < VELOCITY:
-            grid[path_return[-1][0]][path_return[-1][1]]=6
             path_return.pop()
             if len(path_return) == 0:
                 path_return = dijkstra_landing(grid, x, y)
@@ -461,6 +482,7 @@ def goalmissed(x, y, path_return):
     else:
         motion_commander.start_linear_motion(0, 0, 0)
         time.sleep(1)
+        time_start += 1
         STATE = LANDING
         VELOCITY = 0.1
 
@@ -485,6 +507,7 @@ def landing(x, y, prev_vx, prev_vy):
     global goal_pos
     global path_return
     global grid
+    global time_start
 
     if prev_vy != 0 and first:
         if prev_vy > 0:
@@ -506,32 +529,37 @@ def landing(x, y, prev_vx, prev_vy):
             if multiranger.down > height_thresh_fall and abs(y - y_r) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
+                time_start += 1
                 y_l = y
                 L_STATE = L_MIDDLE_Y
         else:
             if multiranger.down > height_thresh_fall and abs(y - y_r) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
+                time_start += 1
                 y_l = y
                 L_STATE = L_MIDDLE_Y
-    if L_STATE == L_RIGHT:
+    elif L_STATE == L_RIGHT:
         vy = -VELOCITY
         if not x_found:
             if multiranger.down > height_thresh_fall and abs(y - y_l) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
+                time_start += 1
                 y_r = y
                 L_STATE = L_MIDDLE_Y
         else:
             if multiranger.down < height_thresh_rise:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
+                time_start += 1
             if multiranger.down > height_thresh_fall:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
+                time_start += 1
                 y_r = y
                 L_STATE = L_LEFT
-    if L_STATE == L_MIDDLE_Y:
+    elif L_STATE == L_MIDDLE_Y:
         diff = (y_l + y_r) / 2 - y
         ##      print(str(round(y_l,2)) + " " + str(round(y_r,2)) + " " + str(round(y,2)))
         vy = np.sign(diff) * VELOCITY
@@ -540,40 +568,46 @@ def landing(x, y, prev_vx, prev_vy):
         if abs(diff) < 0.01:
             motion_commander.start_linear_motion(0, 0, 0)
             time.sleep(1)
+            time_start += 1
             L_STATE = L_BACK
             y_found = True
-    if L_STATE == L_BACK:
+    elif L_STATE == L_BACK:
         vx = -VELOCITY
         if not y_found:
             if multiranger.down > height_thresh_fall and abs(x - x_f) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
+                time_start += 1
                 x_b = x
                 L_STATE = L_MIDDLE_X
         else:
             if multiranger.down > height_thresh_fall:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
+                time_start += 1
                 x_b = x
                 L_STATE = L_FRONT
-    if L_STATE == L_FRONT:
+    elif L_STATE == L_FRONT:
         vx = VELOCITY
         if not y_found:
             if multiranger.down > height_thresh_fall and abs(x - x_b) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
+                time_start += 1
                 x_f = x
                 L_STATE = L_MIDDLE_X
         else:
             if multiranger.down < height_thresh_rise:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
+                time_start += 1
             if multiranger.down > height_thresh_fall and abs(x - x_b) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
                 time.sleep(1)
+                time_start += 1
                 x_f = x
                 L_STATE = L_MIDDLE_X
-    if L_STATE == L_MIDDLE_X:
+    elif L_STATE == L_MIDDLE_X:
         diff = (x_b + x_f) / 2 - x
         #      print(str(round(x_b,2)) + " " + str(round(x_f,2)) + " " + str(round(x,2)))
         vx = np.sign(diff) * VELOCITY
@@ -582,6 +616,7 @@ def landing(x, y, prev_vx, prev_vy):
         if abs(diff) < 0.01:
             motion_commander.start_linear_motion(0, 0, 0)
             time.sleep(1)
+            time_start += 1
             L_STATE = L_RIGHT
             x_found = True
 
@@ -593,7 +628,12 @@ def landing(x, y, prev_vx, prev_vy):
 
         if goal_pos[0] == -1:
             time.sleep(2.5)
+            time_start += 2.5
+            vx = 0
+            vy = 0
             motion_commander.take_off(height=0.3, velocity=0.2)
+            time.sleep(1)
+            time_start += 1
             #      keep_flying = False
             STATE = RETURN
             grid = grow_obstacles(grid)
@@ -616,6 +656,10 @@ def returning(x, y, path_return):
     global y_found
     global first
     global STATE
+
+    if multiranger.down <= height_thresh_rise and x<=1.5:
+        STATE = LANDING
+        return 0, 0, path_return
 
     if updated_bool:
         path_return = dijkstra(grid, x0, y0, x, y)
@@ -652,6 +696,7 @@ def findstart(x,y):
     global x_found
     global y_found
     global first
+    global time_start
     vx = 0
     vy = 0
 
@@ -694,6 +739,7 @@ def findstart(x,y):
     else:
         motion_commander.start_linear_motion(0, 0, 0)
         time.sleep(1)
+        time_start += 1
         STATE = LANDING
         x_found = False
         y_found = False
@@ -819,18 +865,18 @@ if __name__ == '__main__':
                             VELOCITY = 0.2
                         x, y, vx, vy = advance(x, y)
 
-                    elif STATE == CORNER:
+                    if STATE == CORNER:
                         x, y, vx, vy = corner(x, y)
 
-                    elif STATE == GOAL:
+                    if STATE == GOAL:
                         print("State: " + str(STATE) + " x: " + str(round(x, 2)) + " y: " + str(
                             round(y, 2)) + " line0: " + str(line0) + " line3: " + str(line3))
                         x, y, vx, vy = goal(x, y)
 
-                    elif STATE == GOALMISSED:
+                    if STATE == GOALMISSED:
                         x, y, vx, vy, path_return = goalmissed(x, y, path_return)
 
-                    elif STATE == FINDSTART:
+                    if STATE == FINDSTART:
                         x, y, vx, vy = findstart(x,y)
 
                     if STATE == RETURN:
@@ -885,7 +931,7 @@ if __name__ == '__main__':
                             im.set_data(np.transpose(grid))
 
                         plt.draw()
-                        map_changed=False;
+                        map_changed=False
                         plt.pause(0.0001)
 
 
@@ -896,6 +942,7 @@ for x, y in path_all:
     grid[x][y] = 2
 grid[floor(10 * goal_pos[0])][floor(10 * goal_pos[1])] = 5
 grid = color_zone(grid)
+cmap = colors.ListedColormap(['white', 'black', 'red', 'blue', 'green', 'yellow', 'orange'])
 ax.imshow(np.transpose(grid), cmap=cmap)
 plt.savefig("path.png")
 plt.show()
