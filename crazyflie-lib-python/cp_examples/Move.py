@@ -515,7 +515,6 @@ def landing(x, y, prev_vx, prev_vy):
                 y_l = y
                 L_STATE = L_MIDDLE_Y
     if L_STATE == L_RIGHT:
-        global path_return
         vy = -VELOCITY
         if not x_found:
             if multiranger.down > height_thresh_fall and abs(y - y_l) > 0.2:
