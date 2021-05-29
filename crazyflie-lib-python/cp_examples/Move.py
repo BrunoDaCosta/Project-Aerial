@@ -853,6 +853,7 @@ if __name__ == '__main__':
                 height = "down"
                 height_thresh_fall = motion_commander.default_height + 0.016
                 height_thresh_rise = motion_commander.default_height - 0.016
+                corr_dist = 32/35
 
                 # Main loop of the controller
                 while keep_flying:
@@ -897,8 +898,8 @@ if __name__ == '__main__':
                     if(time_start!=0):
                         time_real=time_end-time_start
                         #print("Real time: "+ str(time_real))
-                    x += vx * time_real
-                    y += vy * time_real
+                    x += vx * time_real * corr_dist
+                    y += vy * time_real * corr_dist
                     time_start=time.time()
                     if abs(floor(x * 10) - path_all[-1][0]) > 0.1 or abs(floor(y * 10) - path_all[-1][1]) > 0.1:
                         path_all.append((floor(x * 10), floor(y * 10)))
