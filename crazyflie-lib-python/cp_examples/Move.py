@@ -60,28 +60,32 @@ def update_grid(grid, x, y):
     dists = [0.1, 0.2]
     if (is_close(multiranger.front)):
         for i in dists:
-            if grid[floor((x + i) * multx)][floor((y) * multy)] != 1:
-                update_bool = True
-                print(str(floor((x + i) * multx)) + " " + str(floor((y) * multy)))
-            grid[floor((x + i) * multx)][floor((y) * multy)] = 1
+            if(x+i<5):
+                if grid[floor((x + i) * multx)][floor((y) * multy)] != 1:
+                    update_bool = True
+                    print(str(floor((x + i) * multx)) + " " + str(floor((y) * multy)))
+                grid[floor((x + i) * multx)][floor((y) * multy)] = 1
     if (is_close(multiranger.back)):
         for i in dists:
-            if grid[floor((x - i) * multx)][floor((y) * multy)] != 1:
-                update_bool = True
-                print(str(floor((x - i) * multx)) + " " + str(floor((y) * multy)))
-            grid[floor((x - i) * multx)][floor((y) * multy)] = 1
+            if(x-i>=0):
+                if grid[floor((x - i) * multx)][floor((y) * multy)] != 1:
+                    update_bool = True
+                    print(str(floor((x - i) * multx)) + " " + str(floor((y) * multy)))
+                grid[floor((x - i) * multx)][floor((y) * multy)] = 1
     if (is_close(multiranger.left)):
         for i in dists:
-            if grid[floor((x) * multx)][floor((y + i) * multy)] != 1:
-                update_bool = True
-                print(str(floor((x) * multx)) + " " + str(floor((y + i) * multy)))
-            grid[floor((x) * multx)][floor((y + i) * multy)] = 1
+            if(y+i<3):
+                if grid[floor((x) * multx)][floor((y + i) * multy)] != 1:
+                    update_bool = True
+                    print(str(floor((x) * multx)) + " " + str(floor((y + i) * multy)))
+                grid[floor((x) * multx)][floor((y + i) * multy)] = 1
     if (is_close(multiranger.right)):
         for i in dists:
-            if grid[floor((x) * multx)][floor((y - 1) * multy)] != 1:
-                update_bool = True
-                print(str(floor((x) * multx)) + " " + str(floor((y - 1) * multy)))
-            grid[floor((x) * multx)][floor((y - i) * multy)] = 1
+            if(y-i>=0):
+                if grid[floor((x) * multx)][floor((y - 1) * multy)] != 1:
+                    update_bool = True
+                    print(str(floor((x) * multx)) + " " + str(floor((y - 1) * multy)))
+                grid[floor((x) * multx)][floor((y - i) * multy)] = 1
     return grid, update_bool
 
 
@@ -182,49 +186,49 @@ def dijkstra_landing(grid, x, y):
     grid_value[floor(10 * x)][floor(10 * y)] = 0
     value = 0
     dest_found = False
-
+    print("Start dijkstra")
     while (not dest_found):
-        for i in range(grid.shape[0]):
-            if (i>=35 + 1):
-                if (i <= floor(10 * x) + value + 1 and i >= floor(10 * x) - value - 1):
-                    for j in range(grid.shape[1]):
-                        if (j <= floor(10 * y) + value + 1 and j >= floor(10 * y) - value - 1):
-                            if (grid_value[i][j] == value):
-                                if (i - 1 >= 0):
-                                    if (grid[i - 1][j] != 1 and grid_value[i - 1][j] > value + 1):
-                                        grid_value[i - 1][j] = value + 1
-                                        if(grid[i - 1][j] != 6):
-                                            dest_found = True
-                                            x_tmp = i - 1
-                                            y_tmp = j
-                                            continue
-                                if (i + 1 < grid.shape[0]):
-                                    if (grid[i + 1][j] != 1 and grid_value[i + 1][j] > value + 1):
-                                        grid_value[i + 1][j] = value + 1
-                                        if (grid[i + 1][j] != 6):
-                                            dest_found = True
-                                            x_tmp = i + 1
-                                            y_tmp = j
-                                            continue
-                                if (j - 1 >= 0):
-                                    if (grid[i][j - 1] != 1 and grid_value[i][j - 1] > value + 1):
-                                        grid_value[i][j - 1] = value + 1
-                                        if (grid[i][j - 1] != 6):
-                                            dest_found = True
-                                            x_tmp = i
-                                            y_tmp = j - 1
-                                            continue
-                                if (j + 1 < grid.shape[1]):
-                                    if (grid[i][j + 1] != 1 and grid_value[i][j + 1] > value + 1):
-                                        grid_value[i][j + 1] = value + 1
-                                        if(grid[i - 1][j] != 6):
-                                            dest_found = True
-                                            x_tmp = i - 1
-                                            y_tmp = j
-                                            continue
+        for i in range(35,grid.shape[0]):
+            if (i <= floor(10 * x) + value + 1 and i >= floor(10 * x) - value - 1):
+                for j in range(grid.shape[1]):
+                    if (j <= floor(10 * y) + value + 1 and j >= floor(10 * y) - value - 1):
+                        if (grid_value[i][j] == value):
+                            if (i - 1 >= 35):
+                                if (grid[i - 1][j] != 1 and grid_value[i - 1][j] > value + 1):
+                                    grid_value[i - 1][j] = value + 1
+                                    if(grid[i - 1][j] != 6):
+                                        dest_found = True
+                                        x_tmp = i - 1
+                                        y_tmp = j
+                                        continue
+                            if (i + 1 < grid.shape[0]):
+                                if (grid[i + 1][j] != 1 and grid_value[i + 1][j] > value + 1):
+                                    grid_value[i + 1][j] = value + 1
+                                    if (grid[i + 1][j] != 6):
+                                        dest_found = True
+                                        x_tmp = i + 1
+                                        y_tmp = j
+                                        continue
+                            if (j - 1 >= 0):
+                                if (grid[i][j - 1] != 1 and grid_value[i][j - 1] > value + 1):
+                                    grid_value[i][j - 1] = value + 1
+                                    if (grid[i][j - 1] != 6):
+                                        dest_found = True
+                                        x_tmp = i
+                                        y_tmp = j - 1
+                                        continue
+                            if (j + 1 < grid.shape[1]):
+                                if (grid[i][j + 1] != 1 and grid_value[i][j + 1] > value + 1):
+                                    grid_value[i][j + 1] = value + 1
+                                    if(grid[i - 1][j] != 6):
+                                        dest_found = True
+                                        x_tmp = i - 1
+                                        y_tmp = j
+                                        continue
 
         value += 1
 
+    print("Found destination Dijkstra")
     value = grid_value[x_tmp][y_tmp]
     path_list = []
     path_list.append([x_tmp, y_tmp])
@@ -410,7 +414,7 @@ def goal(x, y):
             vy = VELOCITY
         elif line3 and not is_close(multiranger.right):
             vy = -VELOCITY
-        """"
+
         for i in range(3):
             ind_x = floor(10 * x) + i - 1
             if ind_x >= 0 and ind_x < grid.shape[0]:
@@ -419,7 +423,7 @@ def goal(x, y):
                     if ind_y >= 0 and ind_y < grid.shape[1]:
                         if grid[ind_x][ind_y] == 0:
                             grid[ind_x][ind_y] = 6
-        """
+
     else:
         motion_commander.start_linear_motion(0, 0, 0)
         time.sleep(1)
@@ -441,9 +445,9 @@ def goalmissed(x, y, path_return):
         dist_x = path_return[-1][0] + 0.5 - x * 10
         dist_y = path_return[-1][1] + 0.5 - y * 10
         print("Current postion coords: X=" + str(round(x * 10, 2)) + " Y:" + str(round(y * 10, 2)))
-        print(
-            "Current objective coords: X=" + str(path_return[-1][0]) + " Y:" + str(path_return[-1][1]))
+        print( "Current objective coords: X=" + str(path_return[-1][0]) + " Y:" + str(path_return[-1][1]))
         if abs(dist_x) < VELOCITY and abs(dist_y) < VELOCITY:
+            grid[path_return[-1][0]][path_return[-1][1]]=6
             path_return.pop()
             if len(path_return) == 0:
                 path_return = dijkstra_landing(grid, x, y)
@@ -707,15 +711,15 @@ def findstart(x,y):
 uri = 'radio://0/10/2M/E7E7E7E7E7'
 
 # middle, obstacle, path, starting zone, landing zone, landing pad, visited
-cmap = colors.ListedColormap(['white', 'black', 'red', 'blue', 'green', 'yellow', 'orange'])
+cmap = colors.ListedColormap(['white', 'black', 'red', 'blue', 'green', 'yellow', 'orange', 'red'])
 
 img_size = (50, 30)
 grid = np.zeros((img_size[0], img_size[1]))
 fig, ax = create_empty_plot(img_size[1], img_size[0])
 
 # initial position
-x0 = 0
-y0 = 0
+x0 = 0.75
+y0 = 1.5
 
 # State of the drone
 ADVANCE = 1
@@ -771,7 +775,9 @@ x_f = 0  # x front
 goal_pos = (-1, -1)
 updated_bool = False
 path_return = []
-
+map_changed = True
+time_real = 0.1
+time_start=0
 ###############################################################################
 ##################### Beginning of the program ################################
 ###############################################################################
@@ -782,8 +788,11 @@ if len(sys.argv) > 1:
     if len(sys.argv) > 2:
         y0 = float(sys.argv[2])
 
+tmp_x = x0
+tmp_y = y0
+tmp_value = 0
 path_all = [(floor(x0 * 10), floor(y0 * 10))]
-
+im = None
 if __name__ == '__main__':
     cflib.crtp.init_drivers(enable_debug_driver=False)
     cf = Crazyflie(rw_cache='./cache')
@@ -838,22 +847,49 @@ if __name__ == '__main__':
                         motion_commander.start_linear_motion(vx, vy, 0)
                     prev_vx = vx
                     prev_vy = vy
-                    x += vx * 0.1
-                    y += vy * 0.1
 
+                    time_end=time.time()
+                    if(time_start!=0):
+                        time_real=time_end-time_start
+                        #print("Real time: "+ str(time_real))
+                    x += vx * time_real
+                    y += vy * time_real
+                    time_start=time.time()
                     if abs(floor(x * 10) - path_all[-1][0]) > 0.1 or abs(floor(y * 10) - path_all[-1][1]) > 0.1:
                         path_all.append((floor(x * 10), floor(y * 10)))
 
                     # stop the program if hand is placed above drone
                     if is_close(multiranger.up):
-                        print("landing")
+                        print("Forced landing")
                         keep_flying = False
-                    time.sleep(0.1)
-                    ##                    print("{}  {} {}".format(round(x,2),round(y,2), multiranger.down))
+
                     # update the grid with obstacles and visited position
                     grid, updated_bool = update_grid(grid, x, y)
                     if (updated_bool):
                         print("New obstacle found")
+
+                    if (x != tmp_x or y != tmp_y):
+                        grid[floor(tmp_x*10)][floor(tmp_y*10)]=tmp_value
+                        tmp_value = grid[floor(x*10)][floor(y*10)]
+                        tmp_x = x
+                        tmp_y = y
+                        grid[floor(x*10)][floor(y*10)]=7
+                        map_changed = True
+
+                    if (map_changed):
+                        if not im:
+                            # for the first frame generate the plot...
+                            im = plt.imshow(np.transpose(grid), cmap=cmap, interpolation='none', vmin=0, vmax=2)
+                            plt.colorbar(im, orientation='horizontal')
+                        else:
+                            # ... for subsequent times only update the data
+                            im.set_data(np.transpose(grid))
+
+                        plt.draw()
+                        map_changed=False;
+                        plt.pause(0.0001)
+
+
 
                     ### grid[floor(x * 10)][floor(y * 10)] = 2
 
