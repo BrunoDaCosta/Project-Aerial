@@ -914,9 +914,9 @@ if __name__ == '__main__':
                         plt.pause(0.0001)
 
 
-
                     ### grid[floor(x * 10)][floor(y * 10)] = 2
 
+# End of program, print the map
 for x, y in path_all:
     grid[x][y] = 2
 grid[floor(10 * goal_pos[0])][floor(10 * goal_pos[1])] = 5
