@@ -188,7 +188,7 @@ def dijkstra_landing(grid, x, y):
     dest_found = False
     print("Start dijkstra")
     while (not dest_found):
-        for i in range(35,grid.shape[0]):
+        for i in range(35, grid.shape[0]):
             if (i <= floor(10 * x) + value + 1 and i >= floor(10 * x) - value - 1):
                 for j in range(grid.shape[1]):
                     if (j <= floor(10 * y) + value + 1 and j >= floor(10 * y) - value - 1):
@@ -383,6 +383,7 @@ def corner(x, y):
 def goal(x, y):
     vx = 0
     vy = 0
+    delay = 1
     global VELOCITY
     global keep_flying
     global line0
@@ -404,7 +405,6 @@ def goal(x, y):
         if y > 2.85 or is_close(multiranger.left):
             line3 = True
         if line3 and line0:
-            print("fin de ligne")
             if x > 4.85:
                 print("goal not found")
                 STATE = GOALMISSED
@@ -436,8 +436,8 @@ def goal(x, y):
 
     else:
         motion_commander.start_linear_motion(0, 0, 0)
-        time.sleep(1)
-        time_start += 1
+        time.sleep(delay)
+        time_start += delay
         STATE = LANDING
         VELOCITY = 0.1
         line0 = False
@@ -493,6 +493,7 @@ def goalmissed(x, y, path_return):
 def landing(x, y, prev_vx, prev_vy):
     vx = 0
     vy = 0
+    delay = 1
     global first
     global L_STATE
     global STATE
@@ -528,15 +529,15 @@ def landing(x, y, prev_vx, prev_vy):
         if not x_found:
             if multiranger.down > height_thresh_fall and abs(y - y_r) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-                time_start += 1
+                time.sleep(delay)
+                time_start += delay
                 y_l = y
                 L_STATE = L_MIDDLE_Y
         else:
             if multiranger.down > height_thresh_fall and abs(y - y_r) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-                time_start += 1
+                time.sleep(delay)
+                time_start += delay
                 y_l = y
                 L_STATE = L_MIDDLE_Y
     elif L_STATE == L_RIGHT:
@@ -544,31 +545,30 @@ def landing(x, y, prev_vx, prev_vy):
         if not x_found:
             if multiranger.down > height_thresh_fall and abs(y - y_l) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-                time_start += 1
+                time.sleep(delay)
+                time_start += delay
                 y_r = y
                 L_STATE = L_MIDDLE_Y
         else:
             if multiranger.down < height_thresh_rise:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-                time_start += 1
+                time.sleep(delay)
+                time_start += delay
             if multiranger.down > height_thresh_fall:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-                time_start += 1
+                time.sleep(delay)
+                time_start += delay
                 y_r = y
                 L_STATE = L_LEFT
     elif L_STATE == L_MIDDLE_Y:
         diff = (y_l + y_r) / 2 - y
-        ##      print(str(round(y_l,2)) + " " + str(round(y_r,2)) + " " + str(round(y,2)))
         vy = np.sign(diff) * VELOCITY
         if abs(diff) < 0.02:
             vy = np.sign(diff) * VELOCITY / 2
         if abs(diff) < 0.01:
             motion_commander.start_linear_motion(0, 0, 0)
-            time.sleep(1)
-            time_start += 1
+            time.sleep(delay)
+            time_start += delay
             L_STATE = L_BACK
             y_found = True
     elif L_STATE == L_BACK:
@@ -576,15 +576,15 @@ def landing(x, y, prev_vx, prev_vy):
         if not y_found:
             if multiranger.down > height_thresh_fall and abs(x - x_f) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-                time_start += 1
+                time.sleep(delay)
+                time_start += delay
                 x_b = x
                 L_STATE = L_MIDDLE_X
         else:
             if multiranger.down > height_thresh_fall:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-                time_start += 1
+                time.sleep(delay)
+                time_start += delay
                 x_b = x
                 L_STATE = L_FRONT
     elif L_STATE == L_FRONT:
@@ -592,31 +592,30 @@ def landing(x, y, prev_vx, prev_vy):
         if not y_found:
             if multiranger.down > height_thresh_fall and abs(x - x_b) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-                time_start += 1
+                time.sleep(delay)
+                time_start += delay
                 x_f = x
                 L_STATE = L_MIDDLE_X
         else:
             if multiranger.down < height_thresh_rise:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-                time_start += 1
+                time.sleep(delay)
+                time_start += delay
             if multiranger.down > height_thresh_fall and abs(x - x_b) > 0.2:
                 motion_commander.start_linear_motion(0, 0, 0)
-                time.sleep(1)
-                time_start += 1
+                time.sleep(delay)
+                time_start += delay
                 x_f = x
                 L_STATE = L_MIDDLE_X
     elif L_STATE == L_MIDDLE_X:
         diff = (x_b + x_f) / 2 - x
-        #      print(str(round(x_b,2)) + " " + str(round(x_f,2)) + " " + str(round(x,2)))
         vx = np.sign(diff) * VELOCITY
         if abs(diff) < 0.02:
             vx = np.sign(diff) * VELOCITY / 2
         if abs(diff) < 0.01:
             motion_commander.start_linear_motion(0, 0, 0)
-            time.sleep(1)
-            time_start += 1
+            time.sleep(delay)
+            time_start += delay
             L_STATE = L_RIGHT
             x_found = True
 
@@ -632,8 +631,8 @@ def landing(x, y, prev_vx, prev_vy):
             vx = 0
             vy = 0
             motion_commander.take_off(height=0.3, velocity=0.2)
-            time.sleep(1)
-            time_start += 1
+            time.sleep(delay)
+            time_start += delay
             #      keep_flying = False
             STATE = RETURN
             grid = grow_obstacles(grid)
@@ -783,17 +782,16 @@ L_FRONT = 4
 L_MIDDLE_Y = 5
 L_MIDDLE_X = 6
 
-# Used to select a direction when encountering an obstacle
-direction = 0
+direction = 0           # Used to select a direction when encountering an obstacle
 checkedright = False
 checkedleft = False
-VELOCITY = 0.2
-STATE = ADVANCE
-L_STATE = L_RIGHT
-line0 = False
-line3 = False
+VELOCITY = 0.2          # Velocity of the drone
+STATE = ADVANCE         # State of the drone in the FSM
+L_STATE = L_RIGHT       # Landing state of the drone
+line0 = False           # Boolean to know if the right side of the landing zone was search
+line3 = False           # Same for the left side
 line2 = False
-x_last = 0
+x_last = 0              # x coordinate of the last landing zone line explored
 
 # True until the end of the first passsage in landing state, used to know
 # in which direction (x,-x,y,-y) the drone found the landing pad
@@ -816,13 +814,13 @@ y_l = 0  # y left
 y_r = 0  # y right
 x_b = 0  # x back
 x_f = 0  # x front
-# position of the landing pad center
-goal_pos = (-1, -1)
+goal_pos = (-1, -1) # position of the landing pad center
+
 updated_bool = False
 path_return = []
 map_changed = True
 time_real = 0.1
-time_start=0
+time_start = 0
 ###############################################################################
 ##################### Beginning of the program ################################
 ###############################################################################
@@ -895,8 +893,8 @@ if __name__ == '__main__':
                     prev_vy = vy
 
                     time_end=time.time()
-                    if(time_start!=0):
-                        time_real=time_end-time_start
+                    if(time_start != 0):
+                        time_real = time_end - time_start
                         #print("Real time: "+ str(time_real))
                     x += vx * time_real * corr_dist
                     y += vy * time_real * corr_dist
@@ -915,11 +913,11 @@ if __name__ == '__main__':
                         print("New obstacle found")
 
                     if (x != tmp_x or y != tmp_y):
-                        grid[floor(tmp_x*10)][floor(tmp_y*10)]=tmp_value
-                        tmp_value = grid[floor(x*10)][floor(y*10)]
+                        grid[floor(tmp_x * 10)][floor(tmp_y * 10)] = tmp_value
+                        tmp_value = grid[floor(x * 10)][floor(y * 10)]
                         tmp_x = x
                         tmp_y = y
-                        grid[floor(x*10)][floor(y*10)]=7
+                        grid[floor(x * 10)][floor(y * 10)] = 7
                         map_changed = True
 
                     if (map_changed):
