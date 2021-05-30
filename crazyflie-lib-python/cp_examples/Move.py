@@ -760,8 +760,8 @@ L_MIDDLE_Y = 5
 L_MIDDLE_X = 6
 
 direction = 0           # Used to select a direction when encountering an obstacle
-checkedright = False
-checkedleft = False
+checkedright = False    # true if there is an obstacle on the right
+checkedleft = False     # true if there is an obstacle on the left
 VELOCITY = 0.2          # Velocity of the drone
 STATE = ADVANCE         # State of the drone in the FSM
 L_STATE = L_RIGHT       # Landing state of the drone
