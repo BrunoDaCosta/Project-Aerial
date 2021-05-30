@@ -690,7 +690,7 @@ def findstart(x,y):
 
         if line3 and line0:
             if not line2:
-                if x0-x > distance_x:
+                if x0 - x > distance_x:
                     line2 = True
                     line0 = False
                     line3 = False
@@ -783,10 +783,6 @@ y_found = False
 height_thresh_fall = 0
 height_thresh_rise = 0
 
-# Set of points not explored in the landing zone due to obstacles
-x_obst = []
-y_obst = []
-
 # x and y positions of the edge of the landing pad
 y_l = 0             # y left
 y_r = 0             # y right
@@ -794,9 +790,10 @@ x_b = 0             # x back
 x_f = 0             # x front
 goal_pos = (-1, -1) # position of the landing pad center
 
-updated_bool = False
-path_return = []
-map_changed = True
+# map
+updated_bool = False # if the map was updated due to a new obstacle detected
+path_return = []     # path containing the coordinate to return to take-off pad
+map_changed = True   # true if the drone changed of location in the map
 
 # Time passed during two executions of the main loop
 time_real = 0.1 
@@ -822,7 +819,7 @@ if __name__ == '__main__':
     with SyncCrazyflie(uri, cf=cf) as scf:
         with MotionCommander(
                 scf,
-                default_height=0.3) as motion_commander:
+                default_height = 0.3) as motion_commander:
             with Multiranger(scf) as multiranger:
                 keep_flying = True
                 x = x0
