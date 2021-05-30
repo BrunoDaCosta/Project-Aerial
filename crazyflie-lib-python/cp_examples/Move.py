@@ -609,7 +609,6 @@ def landing(x, y, prev_vx, prev_vy):
             motion_commander.take_off(height=0.3, velocity=0.2)
             time.sleep(delay)
             time_start += delay
-            #      keep_flying = False
             STATE = RETURN
             grid = grow_obstacles(grid)
             path_return = dijkstra(grid, x0, y0, x, y)
