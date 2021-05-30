@@ -630,8 +630,13 @@ def returning(x, y, path_return):
     global y_found
     global first
     global STATE
+    global VELOCITY
 
     if multiranger.down <= height_thresh_rise and x<=1.5:
+        x_found = False
+        y_found = False
+        first = True
+        VELOCITY = 0.1
         STATE = LANDING
         return 0, 0, path_return
 
