@@ -470,6 +470,7 @@ def landing(x, y, prev_vx, prev_vy):
     vx = 0
     vy = 0
     delay = 1
+    bias = 0.05
     global first
     global L_STATE
     global STATE
@@ -488,17 +489,17 @@ def landing(x, y, prev_vx, prev_vy):
 
     if prev_vy != 0 and first:
         if prev_vy > 0:
-            y_r = y - 0.05
+            y_r = y - bias
             L_STATE = L_LEFT
         else:
-            y_l = y + 0.05
+            y_l = y + bias
             L_STATE = L_RIGHT
     if prev_vx != 0 and first:
         if prev_vx > 0:
-            x_b = x
+            x_b = x - bias
             L_STATE = L_FRONT
         else:
-            x_f = x
+            x_f = x + bias
             L_STATE = L_BACK
     if L_STATE == L_LEFT:
         vy = VELOCITY
