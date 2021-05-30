@@ -26,6 +26,7 @@ from cflib.positioning.motion_commander import MotionCommander
 #################### Functions used for the grid ##############################
 ###############################################################################
 
+# create empty map
 def create_empty_plot(size_x, size_y):
     fig, ax = plt.subplots(figsize=(7, 7))
     major_ticks_x = np.arange(0, size_x + 1, 5)
@@ -43,7 +44,7 @@ def create_empty_plot(size_x, size_y):
     ax.grid(True)
     return fig, ax
 
-
+#return true if an obstacle is close
 def is_close(range):
     MIN_DISTANCE = 0.22  # m
 
@@ -52,7 +53,7 @@ def is_close(range):
     else:
         return range < MIN_DISTANCE
 
-
+# update grid using obstacles detection
 def update_grid(grid, x, y):
     update_bool = False
     multx = img_size[0] / 5
@@ -88,7 +89,7 @@ def update_grid(grid, x, y):
                 grid[floor((x) * multx)][floor((y - i) * multy)] = 1
     return grid, update_bool
 
-
+# color starting and landing zone
 def color_zone(grid):
     for y in range(30):
         for x in range(15):
@@ -99,7 +100,7 @@ def color_zone(grid):
                 grid[x][y] = 4
     return grid
 
-
+# increase size of detected obstacles as a safety factor
 def grow_obstacles(grid):
     sx, sy = grid.shape
     sx = range(sx)
@@ -115,7 +116,7 @@ def grow_obstacles(grid):
     grid[grid == -1] = 1
     return grid
 
-
+#Dijkstra route to return to the take-off pad from landing one
 def dijkstra(grid, objx, objy, x, y):
     grid_value = np.full((grid.shape[0], grid.shape[1]), 1000)
     objx = floor(10 * objx)
@@ -180,6 +181,7 @@ def dijkstra(grid, objx, objy, x, y):
     print("List after" + str(path_list))
     return path_list
 
+#Dijkstra route to explore the last regions of the landing zone
 def dijkstra_landing(grid, x, y):
     grid_value = np.full((grid.shape[0], grid.shape[1]), 1000)
     # print(grid.shape[0])
@@ -277,30 +279,6 @@ def dijkstra_landing(grid, x, y):
 ####################### Functions for each state ##############################
 ###############################################################################
 
-def get_off_U(x, y, VELOCITY=0.2):
-    while is_close(multiranger.right) and is_close(multiranger.left) and not is_close(multiranger.back):
-        motion_commander.start_linear_motion(-VELOCITY, 0, 0)
-        time.sleep(0.1)
-        x -= VELOCITY * 0.1
-    if not is_close(multiranger.right) and not is_close(multiranger.left):
-        if y < 1.5:
-            motion_commander.start_linear_motion(0, VELOCITY, 0)
-            time.sleep(0.5)
-            y += VELOCITY * 0.5
-        else:
-            motion_commander.start_linear_motion(0, -VELOCITY, 0)
-            time.sleep(0.5)
-            y -= VELOCITY * 0.5
-    elif not is_close(multiranger.right):
-        motion_commander.start_linear_motion(0, -VELOCITY, 0)
-        time.sleep(0.5)
-        y -= VELOCITY * 0.5
-    else:
-        motion_commander.start_linear_motion(0, VELOCITY, 0)
-        time.sleep(0.5)
-        y += VELOCITY * 0.5
-    return x, y
-
 # Advance State : drone reaches landing region while avoiding obstacles
 # Obstacle avoidance is set to prioritize displacement towards the y-center
 # of the map.
@@ -313,10 +291,7 @@ def advance(x, y):
     global checkedleft
     global direction
     if (is_close(multiranger.front)):
-        if is_close(multiranger.right) and is_close(multiranger.left):
-            print("U")
-            (x, y) = get_off_U(x, y)
-        elif (is_close(multiranger.right)):
+        if (is_close(multiranger.right)):
             print("Left")
             if y > 2.8:
                 STATE = CORNER
@@ -447,6 +422,7 @@ def goal(x, y):
 def goalmissed(x, y, path_return):
     vx = 0
     vy = 0
+    delay = 1
     global VELOCITY
     global keep_flying
     global STATE
@@ -481,8 +457,8 @@ def goalmissed(x, y, path_return):
 
     else:
         motion_commander.start_linear_motion(0, 0, 0)
-        time.sleep(1)
-        time_start += 1
+        time.sleep(delay)
+        time_start += delay
         STATE = LANDING
         VELOCITY = 0.1
 
@@ -686,6 +662,9 @@ def returning(x, y, path_return):
 
 # Once around the expected position of the goal, look for it
 def findstart(x,y):
+    vx = 0
+    vy = 0
+    delay = 1
     global STATE
     global VELOCITY
     global line0
@@ -696,8 +675,6 @@ def findstart(x,y):
     global y_found
     global first
     global time_start
-    vx = 0
-    vy = 0
 
     if multiranger.down > height_thresh_rise:
         distance_y = 1
@@ -737,8 +714,8 @@ def findstart(x,y):
                         line3 = False
     else:
         motion_commander.start_linear_motion(0, 0, 0)
-        time.sleep(1)
-        time_start += 1
+        time.sleep(delay)
+        time_start += delay
         STATE = LANDING
         x_found = False
         y_found = False
@@ -757,6 +734,7 @@ uri = 'radio://0/10/2M/E7E7E7E7E7'
 # middle, obstacle, path, starting zone, landing zone, landing pad, visited
 cmap = colors.ListedColormap(['white', 'black', 'red', 'blue', 'green', 'yellow', 'orange', 'red'])
 
+# map of the world
 img_size = (50, 30)
 grid = np.zeros((img_size[0], img_size[1]))
 fig, ax = create_empty_plot(img_size[1], img_size[0])
@@ -796,6 +774,7 @@ x_last = 0              # x coordinate of the last landing zone line explored
 # True until the end of the first passsage in landing state, used to know
 # in which direction (x,-x,y,-y) the drone found the landing pad
 first = True
+
 # True if the x (y) position of the landing pad center is found
 x_found = False
 y_found = False
@@ -810,16 +789,18 @@ x_obst = []
 y_obst = []
 
 # x and y positions of the edge of the landing pad
-y_l = 0  # y left
-y_r = 0  # y right
-x_b = 0  # x back
-x_f = 0  # x front
+y_l = 0             # y left
+y_r = 0             # y right
+x_b = 0             # x back
+x_f = 0             # x front
 goal_pos = (-1, -1) # position of the landing pad center
 
 updated_bool = False
 path_return = []
 map_changed = True
-time_real = 0.1
+
+# Time passed during two executions of the main loop
+time_real = 0.1 
 time_start = 0
 ###############################################################################
 ##################### Beginning of the program ################################
